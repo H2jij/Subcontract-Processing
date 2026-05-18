@@ -1,8 +1,8 @@
 import base64
 import io
+import os
 import random
 
-import anyio
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -19,8 +19,9 @@ class CaptchaService:
         # 创建绘图对象
         draw = ImageDraw.Draw(image)
 
-        # 设置字体
-        font_path = (await anyio.Path.cwd()) / 'assets' / 'font' / 'Arial.ttf'
+        # 设置字体（captcha_service.py 在 module_admin/service/，往上3层到后端根目录）
+        _backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        font_path = os.path.join(_backend_dir, 'assets', 'font', 'Arial.ttf')
         font = ImageFont.truetype(font_path, size=30)
 
         # 生成两个0-9之间的随机整数

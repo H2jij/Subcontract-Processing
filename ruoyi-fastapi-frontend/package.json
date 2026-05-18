@@ -1,7 +1,7 @@
 {
   "name": "vfadmin",
   "version": "1.9.0",
-  "description": "vfadmin管理系统",
+  "description": "委外加工系统",
   "author": "insistence",
   "license": "MIT",
   "type": "module",
@@ -46,7 +46,9 @@
     "vue": "3.5.26",
     "vue-cropper": "1.1.1",
     "vue-router": "4.6.4",
-    "vuedraggable": "4.1.0"
+    "vuedraggable": "4.1.0",
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.4",

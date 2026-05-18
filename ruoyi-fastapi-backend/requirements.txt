@@ -4,7 +4,7 @@ alembic==1.18.3
 anthropic==0.78.0
 APScheduler==3.11.2
 async-lru==2.1.0
-asyncmy==0.2.11
+asyncpg==0.31.0
 bcrypt==5.0.0
 cerebras-cloud-sdk==1.67.0
 cohere==5.20.4
@@ -22,10 +22,10 @@ pandas==2.3.3
 Pillow==12.1.1
 portkey-ai==2.1.0
 psutil==7.2.2
+psycopg2==2.9.11
 pydantic>=2.11.4
 pydantic-validation-decorator==0.1.5
 PyJWT[crypto]==2.11.0
-PyMySQL==1.1.2
 redis==7.1.0
 ruff==0.15.0
 SQLAlchemy[asyncio]==2.0.46

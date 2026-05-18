@@ -8,6 +8,8 @@ import { isRelogin } from '@/utils/request'
 import useUserStore from '@/store/modules/user'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+import useChatStore from '@/store/modules/chat'
+import { getChatSessions } from '@/api/entrust/chat'
 
 NProgress.configure({ showSpinner: false })
 
@@ -41,6 +43,13 @@ router.beforeEach((to, from, next) => {
               }
             })
             next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
+            // Load chat unread count for sidebar badge
+            getChatSessions().then(res => {
+              if (res.code === 200) {
+                const total = (res.data || []).reduce((sum, s) => sum + (s.unread || 0), 0)
+                useChatStore().setTotalUnread(total)
+              }
+            }).catch(() => {})
           })
         }).catch(err => {
           useUserStore().logOut().then(() => {

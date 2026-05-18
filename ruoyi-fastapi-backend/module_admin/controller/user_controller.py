@@ -129,7 +129,7 @@ async def add_system_user(
     add_user_result = await UserService.add_user_services(query_db, add_user)
     logger.info(add_user_result.message)
 
-    return ResponseUtil.success(msg=add_user_result.message)
+    return ResponseUtil.success(msg=add_user_result.message, data=add_user_result.result)
 
 
 @user_controller.put(

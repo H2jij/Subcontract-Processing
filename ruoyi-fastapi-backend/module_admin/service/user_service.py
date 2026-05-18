@@ -178,7 +178,7 @@ class UserService:
                 for post in page_object.post_ids:
                     await UserDao.add_user_post_dao(query_db, UserPostModel(userId=user_id, postId=post))
             await query_db.commit()
-            return CrudResponseModel(is_success=True, message='新增成功')
+            return CrudResponseModel(is_success=True, message='新增成功', result=user_id)
         except Exception as e:
             await query_db.rollback()
             raise e

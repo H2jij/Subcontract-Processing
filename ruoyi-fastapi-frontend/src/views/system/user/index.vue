@@ -1,39 +1,6 @@
 <template>
   <div class="app-container">
     <el-row :gutter="20">
-      <splitpanes
-        :horizontal="appStore.device === 'mobile'"
-        class="default-theme"
-      >
-        <!--部门数据-->
-        <pane size="16">
-          <el-col>
-            <div class="head-container">
-              <el-input
-                v-model="deptName"
-                placeholder="请输入部门名称"
-                clearable
-                prefix-icon="Search"
-                style="margin-bottom: 20px"
-              />
-            </div>
-            <div class="head-container">
-              <el-tree
-                :data="deptOptions"
-                :props="{ label: 'label', children: 'children' }"
-                :expand-on-click-node="false"
-                :filter-node-method="filterNode"
-                ref="deptTreeRef"
-                node-key="id"
-                highlight-current
-                default-expand-all
-                @node-click="handleNodeClick"
-              />
-            </div>
-          </el-col>
-        </pane>
-        <!--用户数据-->
-        <pane size="84">
           <el-col>
             <el-form
               :model="queryParams"
@@ -183,14 +150,6 @@
                 :show-overflow-tooltip="true"
               />
               <el-table-column
-                label="部门"
-                align="center"
-                key="deptName"
-                prop="dept.deptName"
-                v-if="columns.deptName.visible"
-                :show-overflow-tooltip="true"
-              />
-              <el-table-column
                 label="手机号码"
                 align="center"
                 key="phonenumber"
@@ -294,57 +253,11 @@
               @pagination="getList"
             />
           </el-col>
-        </pane>
-      </splitpanes>
     </el-row>
 
     <!-- 添加或修改用户配置对话框 -->
     <el-dialog :title="title" v-model="open" width="600px" append-to-body>
       <el-form :model="form" :rules="rules" ref="userRef" label-width="80px">
-        <el-row>
-          <el-col :span="12">
-            <el-form-item label="用户昵称" prop="nickName">
-              <el-input
-                v-model="form.nickName"
-                placeholder="请输入用户昵称"
-                maxlength="30"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="归属部门" prop="deptId">
-              <el-tree-select
-                v-model="form.deptId"
-                :data="enabledDeptOptions"
-                :props="{ value: 'id', label: 'label', children: 'children' }"
-                value-key="id"
-                placeholder="请选择归属部门"
-                clearable
-                check-strictly
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="12">
-            <el-form-item label="手机号码" prop="phonenumber">
-              <el-input
-                v-model="form.phonenumber"
-                placeholder="请输入手机号码"
-                maxlength="11"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="邮箱" prop="email">
-              <el-input
-                v-model="form.email"
-                placeholder="请输入邮箱"
-                maxlength="50"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
         <el-row>
           <el-col :span="12">
             <el-form-item
@@ -360,6 +273,17 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
+            <el-form-item label="用户昵称" prop="nickName">
+              <el-input
+                v-model="form.nickName"
+                placeholder="请输入用户昵称"
+                maxlength="30"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row>
+          <el-col :span="12">
             <el-form-item
               v-if="form.userId == undefined"
               label="用户密码"
@@ -374,16 +298,26 @@
               />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="手机号码" prop="phonenumber">
+              <el-input
+                v-model="form.phonenumber"
+                placeholder="请输入手机号码"
+                maxlength="11"
+              />
+            </el-form-item>
+          </el-col>
         </el-row>
         <el-row>
           <el-col :span="12">
-            <el-form-item label="用户性别">
-              <el-select v-model="form.sex" placeholder="请选择">
+            <el-form-item label="角色">
+              <el-select v-model="form.roleIds" multiple placeholder="请选择角色">
                 <el-option
-                  v-for="dict in sys_user_sex"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
+                  v-for="item in roleOptions"
+                  :key="item.roleId"
+                  :label="item.roleName"
+                  :value="item.roleId"
+                  :disabled="item.status == 1"
                 ></el-option>
               </el-select>
             </el-form-item>
@@ -401,30 +335,16 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
-          <el-col :span="12">
-            <el-form-item label="岗位">
-              <el-select v-model="form.postIds" multiple placeholder="请选择">
+        <el-row v-if="form.roleIds && form.roleIds.includes(103)">
+          <el-col :span="24">
+            <el-form-item label="关联加工方">
+              <el-select v-model="selectedSupplierId" filterable placeholder="请选择要关联的加工方" style="width: 100%">
                 <el-option
-                  v-for="item in postOptions"
-                  :key="item.postId"
-                  :label="item.postName"
-                  :value="item.postId"
-                  :disabled="item.status == 1"
-                ></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="角色">
-              <el-select v-model="form.roleIds" multiple placeholder="请选择">
-                <el-option
-                  v-for="item in roleOptions"
-                  :key="item.roleId"
-                  :label="item.roleName"
-                  :value="item.roleId"
-                  :disabled="item.status == 1"
-                ></el-option>
+                  v-for="item in supplierOptions"
+                  :key="item.id"
+                  :label="item.name + (item.link_username ? '（已关联:' + item.link_username + '）' : '')"
+                  :value="item.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -513,8 +433,7 @@ import {
   addUser,
   deptTreeSelect,
 } from "@/api/system/user";
-import { Splitpanes, Pane } from "splitpanes";
-import "splitpanes/dist/splitpanes.css";
+import { listSupplier, linkSupplierUser } from "@/api/entrust/supplier";
 
 const router = useRouter();
 const appStore = useAppStore();
@@ -540,6 +459,16 @@ const enabledDeptOptions = ref(undefined);
 const initPassword = ref(undefined);
 const postOptions = ref([]);
 const roleOptions = ref([]);
+const supplierOptions = ref([]);
+const selectedSupplierId = ref(undefined);
+const PROCESSOR_ROLE_ID = 103;
+
+function loadSuppliers() {
+  listSupplier({ page_num: 1, page_size: 100 }).then(res => {
+    supplierOptions.value = res.rows || [];
+  });
+}
+loadSuppliers();
 /*** 用户导入参数 */
 const upload = reactive({
   // 是否显示弹出层（用户导入）
@@ -837,6 +766,7 @@ function reset() {
     postIds: [],
     roleIds: [],
   };
+  selectedSupplierId.value = undefined;
   proxy.resetForm("userRef");
 }
 /** 取消按钮 */
@@ -876,12 +806,24 @@ function submitForm() {
     if (valid) {
       if (form.value.userId != undefined) {
         updateUser(form.value).then((response) => {
+          // 如果选了加工方角色且选了关联加工方，关联
+          if (selectedSupplierId.value) {
+            linkSupplierUser(selectedSupplierId.value, form.value.userId).then(() => {
+              loadSuppliers();
+            }).catch(() => {});
+          }
           proxy.$modal.msgSuccess("修改成功");
           open.value = false;
           getList();
         });
       } else {
         addUser(form.value).then((response) => {
+          // 新增用户后，如果选了加工方角色且选了关联加工方，关联
+          if (selectedSupplierId.value && response.data) {
+            linkSupplierUser(selectedSupplierId.value, response.data).then(() => {
+              loadSuppliers();
+            }).catch(() => {});
+          }
           proxy.$modal.msgSuccess("新增成功");
           open.value = false;
           getList();

@@ -213,7 +213,8 @@ class CachePathConfig:
     缓存目录配置
     """
 
-    PATH = os.path.join(os.path.abspath(os.getcwd()), 'caches')
+    _backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    PATH = os.path.join(_backend_root, 'caches')
     PATHSTR = 'caches'
 
 
@@ -310,6 +311,9 @@ class GetConfig:
         # 运行环境不为空时按命令行参数加载对应.env文件
         if run_env != '':
             env_file = f'.env.{run_env}'
+        # 基于 config/env.py 所在目录推算后端根目录，确保不依赖工作目录
+        _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env_file = os.path.join(_backend_dir, env_file)
         # 加载配置
         load_dotenv(env_file)
 

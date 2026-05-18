@@ -4,7 +4,10 @@
       <app-link v-if="onlyOneChild.meta" :to="resolvePath(onlyOneChild.path, onlyOneChild.query)">
         <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{ 'submenu-title-noDropdown': !isNest }">
           <svg-icon :icon-class="onlyOneChild.meta.icon || (item.meta && item.meta.icon)"/>
-          <template #title><span class="menu-title" :title="hasTitle(onlyOneChild.meta.title)">{{ onlyOneChild.meta.title }}</span></template>
+          <template #title>
+            <span class="menu-title" :title="hasTitle(onlyOneChild.meta.title)">{{ onlyOneChild.meta.title }}</span>
+            <span v-if="chatUnread > 0 && isChatMenu" class="menu-badge">{{ chatUnread > 99 ? '99+' : chatUnread }}</span>
+          </template>
         </el-menu-item>
       </app-link>
     </template>
@@ -31,6 +34,7 @@
 import { isExternal } from '@/utils/validate'
 import AppLink from './Link'
 import { getNormalPath } from '@/utils/ruoyi'
+import useChatStore from '@/store/modules/chat'
 
 const props = defineProps({
   // route object
@@ -49,6 +53,16 @@ const props = defineProps({
 })
 
 const onlyOneChild = ref({});
+
+const chatStore = useChatStore()
+const chatUnread = computed(() => chatStore.totalUnread)
+const isChatMenu = computed(() => {
+  // When a leaf menu has no children, hasOneShowingChild resets onlyOneChild.path to ''
+  // but props.item.path retains the original route path (e.g. 'chat')
+  const itemPath = props.item?.path || ''
+  const childPath = onlyOneChild.value?.path || ''
+  return itemPath === 'chat' || childPath === 'chat'
+})
 
 function hasOneShowingChild(children = [], parent) {
   if (!children) {
@@ -98,3 +112,22 @@ function hasTitle(title){
   }
 }
 </script>
+
+<style scoped>
+.menu-badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  background: #f56c6c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 5px;
+  border-radius: 9px;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+</style>
