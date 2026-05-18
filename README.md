@@ -1,332 +1,257 @@
-<h1 align="center">
-    <img alt="logo" src="https://oscimg.oschina.net/oscnet/up-d3d0a9303e11d522a06cd263f3079027715.png">
-</h1>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">RuoYi-Vue3-FastAPI</h1>
-<h4 align="center">基于RuoYi-Vue3+FastAPI前后端分离的快速开发框架</h4>
-<p align="center">
-    <a href="https://gitee.com/insistence2022/RuoYi-Vue3-FastAPI/stargazers">
-        <img alt="Gitee" src="https://gitee.com/insistence2022/RuoYi-Vue3-FastAPI/badge/star.svg?theme=dark">
-    </a>
-    <a href="https://github.com/insistence/RuoYi-Vue3-FastAPI">
-        <img alt="Github" src="https://img.shields.io/github/stars/insistence/RuoYi-Vue3-FastAPI?style=social">
-    </a>
-    <a href="https://github.com/insistence/RuoYi-Vue3-FastAPI/actions?query=branch%3Amaster+event%3Apush+workflow%3A%22%22Playwright+Tests%22%22">
-        <img alt="Playwright Tests" src="https://github.com/insistence/RuoYi-Vue3-FastAPI/workflows/Playwright Tests/badge.svg">
-    </a>
-    <a href="https://github.com/insistence/RuoYi-Vue3-FastAPI/actions?query=branch%3Amaster+event%3Apush+workflow%3A%22%22Ruff+Check%22%22">
-        <img alt="Ruff Check" src="https://github.com/insistence/RuoYi-Vue3-FastAPI/workflows/Ruff Check/badge.svg">
-    </a>
-    <a href="https://gitee.com/insistence2022/RuoYi-Vue3-FastAPI">
-        <img alt="project version" src="https://img.shields.io/badge/version-1.9.0-brightgreen.svg">
-    </a>
-    <a href="https://github.com/astral-sh/ruff">
-        <img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json">
-    </a>
-    <a href="https://gitee.com/insistence2022/RuoYi-Vue3-FastAPI/blob/master/LICENSE">
-        <img alt="LICENSE" src="https://img.shields.io/github/license/mashape/apistatus.svg">
-    </a>
-    <img alt="node version" src="https://img.shields.io/badge/node-≥18-blue">
-    <img alt="python version" src="https://img.shields.io/badge/python-≥3.10-blue">
-    <img alt="mysql version" src="https://img.shields.io/badge/MySQL-≥5.7-blue">
-    <img alt="redis version" src="https://img.shields.io/badge/redis-≥6.2-blue">
-</p>
+# 委外加工管理系统
 
-## 平台简介
+基于 RuoYi-Vue3 + FastAPI 的前后端分离委外加工管理系统
 
-RuoYi-Vue3-FastAPI是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
+## 项目简介
 
-* 前端采用Vue3、Element Plus，基于<u>[RuoYi-Vue3](https://github.com/yangzongzhuan/RuoYi-Vue3)</u>前端项目修改。
-* 移动端采用uni-app、Vue3、Vite，内置tailwindcss，基于<u>[RuoYi-App](https://github.com/yangzongzhuan/RuoYi-App)</u>项目修改。
-* 后端采用FastAPI、sqlalchemy、MySQL（PostgreSQL）、Redis、OAuth2 & Jwt。
-* 权限认证使用OAuth2 & Jwt，支持多终端认证系统。
-* 支持加载动态权限菜单，多方式轻松权限控制。
-* Vue2版本：
-  * Gitte仓库地址：<https://gitee.com/insistence2022/RuoYi-Vue-FastAPI>
-  * GitHub仓库地址：<https://github.com/insistence/RuoYi-Vue-FastAPI>
-* 纯Python版本：
-  * Gitte仓库地址：<https://gitee.com/insistence2022/dash-fastapi-admin>
-  * GitHub仓库地址：<https://github.com/insistence/Dash-FastAPI-Admin>
-* 特别鸣谢：<u>[RuoYi-Vue3](https://github.com/yangzongzhuan/RuoYi-Vue3)</u>、<u>[RuoYi-App](https://github.com/yangzongzhuan/RuoYi-App)</u>
+本系统是一个完整的委外加工管理平台，包含以下核心功能：
 
-## 内置功能
+- **用户管理**：系统用户配置、权限管理
+- **角色管理**：角色菜单权限分配、数据范围权限
+- **菜单管理**：系统菜单配置、操作权限控制
+- **部门管理**：组织机构管理（公司、部门、小组）
+- **岗位管理**：用户职务管理
+- **委外项目管理**：项目、模具套、零件管理
+- **加工方管理**：供应商信息、能力管理
+- **询价报价管理**：询价单创建、发送、报价、选标
+- **委外工单管理**：工单生成、生产跟踪、质检
+- **聊天沟通**：与加工方的即时沟通
+- **AI 对话**：AI 模型管理和对话功能
+- **系统监控**：服务器监控、缓存监控、日志查询
+- **代码生成**：一键生成前后端代码
 
-1. 用户管理：用户是系统操作者，该功能主要完成系统用户配置。
-2. 角色管理：角色菜单权限分配、设置角色按机构进行数据范围权限划分。
-3. 菜单管理：配置系统菜单，操作权限，按钮权限标识等。
-4. 部门管理：配置系统组织机构（公司、部门、小组）。
-5. 岗位管理：配置系统用户所属担任职务。
-6. 字典管理：对系统中经常使用的一些较为固定的数据进行维护。
-7. 参数管理：对系统动态配置常用参数。
-8. 通知公告：系统通知公告信息发布维护。
-9. 操作日志：系统正常操作日志记录和查询；系统异常信息日志记录和查询。
-10. 登录日志：系统登录日志记录查询包含登录异常。
-11. 在线用户：当前系统中活跃用户状态监控。
-12. 定时任务：在线（添加、修改、删除）任务调度包含执行结果日志。
-13. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
-14. 缓存监控：对系统的缓存信息查询，命令统计等。
-15. 传输加密：支持前后端请求加密、响应解密、公钥轮换、运行策略下发与监控统计。
-16. 在线构建器：拖动表单元素生成相应的HTML代码。
-17. 系统接口：根据业务代码自动生成相关的api接口文档。
-18. 代码生成：配置数据库表信息一键生成前后端代码（python、sql、vue、js），支持下载。
-19. AI管理：提供AI模型管理和AI对话功能。
+## 技术栈
 
-## 演示图
+| 层级 | 技术 |
+|------|------|
+| 前端 | Vue3 + Element Plus + Vite + Pinia |
+| 移动端 | UniApp + Vue3 + TailwindCSS |
+| 后端 | FastAPI + SQLAlchemy + PostgreSQL/MySQL |
+| 缓存 | Redis |
+| 认证 | OAuth2 + JWT |
 
-<table>
-    <tr>
-        <td>
-            <img alt="login" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/login.png">
-        </td>
-        <td>
-            <img alt="dashboard" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dashboard.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="user" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/user.png">
-        </td>
-        <td>
-            <img alt="role" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/role.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="menu" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/menu.png">
-        </td>
-        <td>
-            <img alt="dept" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dept.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt=""post src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/post.png">
-        </td>
-        <td>
-            <img alt="dict" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/dict.png">
-        </td>
-    </tr>  
-    <tr>
-        <td>
-            <img alt="config" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/config.png">
-        </td>
-        <td>
-            <img alt="notice" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/notice.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="operLog" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/operLog.png">
-        </td>
-        <td>
-            <img alt="loginLog" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/loginLog.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="online" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/online.png">
-        </td>
-        <td>
-            <img alt="job" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/job.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="server" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/server.png">
-        </td>
-        <td>
-            <img alt="cache" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/cache.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="cacheList" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/cacheList.png">
-        </td>
-        <td>
-            <img alt="form" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/form.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="api" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/api.png">
-        </td>
-        <td>
-            <img alt="gen" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/gen.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="aiModel" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/aiModel.png">
-        </td>
-        <td>
-            <img alt="aiChat" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/aiChat.png">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="profile" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/web/profile.png">
-        </td>
-    </tr>
-</table>
+## 环境要求
 
-<table>
-    <tr>
-        <td>
-            <img alt="applogin" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/login.png">
-        </td>
-        <td>
-            <img alt="appWorkbench" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/workbench.png">
-        </td>
-        <td>
-            <img alt="appProfile" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/vue3/app/profile.png">
-        </td>
-    </tr>
-</table>
+### 必备软件
 
-## 在线体验
+- **Python** ≥ 3.10
+- **Node.js** ≥ 18
+- **MySQL** ≥ 5.7 或 **PostgreSQL**
+- **Redis** ≥ 6.2
+- **Git**
 
-* *账号：admin*
-* *密码：admin123*
-* 演示地址：<a href="https://vfadmin.insistence.tech">vfadmin管理系统<a>
+### 推荐工具
 
-## 项目开发及发布相关
+- 数据库连接工具（Navicat、DBeaver）
+- API 测试工具（Postman、Apifox）
 
-### 传输层加解密配置说明
+## 快速开始
 
-后端密钥配置与轮换说明：[ruoyi-fastapi-backend/docs/transport_crypto_config.md](./ruoyi-fastapi-backend/docs/transport_crypto_config.md)
-
-### 开发
+### 1. 克隆项目
 
 ```bash
-# 克隆项目
-git clone https://gitee.com/insistence2022/RuoYi-Vue3-FastAPI.git
-
-# 进入项目根目录
-cd RuoYi-Vue3-FastAPI
+git clone https://github.com/H2jij/Subcontract-Processing.git
+cd Subcontract-Processing
 ```
 
-#### 前端
+### 2. 后端配置
 
 ```bash
-# 进入前端目录
-cd ruoyi-fastapi-frontend
-
-# 安装依赖
-npm install 或 yarn --registry=https://registry.npmmirror.com
-
-# 建议不要直接使用 cnpm 安装依赖，会有各种诡异的 bug。可以通过如下操作解决 npm 下载速度慢的问题
-npm install --registry=https://registry.npmmirror.com
-
-# 启动服务
-npm run dev 或 yarn dev
-```
-
-#### 移动端
-
-```bash
-# 进入移动端目录
-cd ruoyi-fastapi-app
-
-# 安装依赖
-npm install -g pnpm
-pnpm install
-
-# 启动 H5
-pnpm dev:h5
-
-# 启动微信小程序
-pnpm dev:mp-weixin
-```
-
-移动端详细文档请参考：[ruoyi-fastapi-app/README.md](./ruoyi-fastapi-app/README.md)
-
-#### 后端
-
-```bash
-# 进入后端目录
 cd ruoyi-fastapi-backend
 
-# 如果使用的是MySQL数据库，请执行以下命令安装项目依赖环境
-pip3 install -r requirements.txt
-# 如果使用的是PostgreSQL数据库，请执行以下命令安装项目依赖环境
-pip3 install -r requirements-pg.txt
+# 安装 Python 依赖
+pip install -r requirements.txt
 
-# 配置环境
-在.env.dev文件中配置开发环境的数据库和redis
+# 配置环境变量
+# 编辑 .env.dev 文件，配置数据库和 Redis 连接信息
+```
 
-# 运行sql文件
-1.新建数据库ruoyi-fastapi(默认，可修改)
-2.如果使用的是MySQL数据库，使用命令或数据库连接工具运行sql文件夹下的ruoyi-fastapi.sql；如果使用的是PostgreSQL数据库，使用命令或数据库连接工具运行sql文件夹下的ruoyi-fastapi-pg.sql
+**.env.dev 关键配置项：**
 
-# 运行后端
+```ini
+# 数据库配置
+DATABASE_TYPE=postgresql  # 或 mysql
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_NAME=ruoyi_fastapi
+
+# Redis 配置
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+# 应用配置
+APP_HOST=0.0.0.0
+APP_PORT=80
+```
+
+### 3. 初始化数据库
+
+```bash
+# 方式 1：使用数据库工具运行 SQL 文件
+# MySQL: sql/ruoyi-fastapi.sql
+# PostgreSQL: sql/ruoyi-fastapi-pg.sql
+
+# 方式 2：使用命令行
+# MySQL:
+mysql -u root -p < sql/ruoyi-fastapi.sql
+
+# PostgreSQL:
+psql -U postgres -d ruoyi_fastapi < sql/ruoyi-fastapi-pg.sql
+```
+
+### 4. 启动后端服务
+
+```bash
+cd ruoyi-fastapi-backend
+
+# 方式 1：使用 CLI 命令（推荐）
 ruoyi app run --env=dev
+
+# 方式 2：直接运行
+python app.py
 ```
 
-后端 CLI 使用说明请参考：[ruoyi-fastapi-backend/docs/cli_usage.md](./ruoyi-fastapi-backend/docs/cli_usage.md)
+后端启动入口：`app.py`
 
-#### 访问
+### 5. 前端配置
 
 ```bash
-# 默认账号密码
-账号：admin
-密码：admin123
+cd ruoyi-fastapi-frontend
 
-# 浏览器访问
-地址：http://localhost:80
+# 安装 Node.js 依赖（使用国内镜像加速）
+npm install --registry=https://registry.npmmirror.com
+
+# 启动开发服务器
+npm run dev
 ```
 
-### 发布
+### 6. 访问系统
 
-#### 前端
+| 项目 | 地址 |
+|------|------|
+| 前端页面 | http://localhost:80 |
+| 后端接口 | http://localhost:80/api |
+| API 文档 | http://localhost:80/docs |
 
-```bash
-# 构建测试环境
-npm run build:stage 或 yarn build:stage
+**默认账号：**
+- 账号：`admin`
+- 密码：`admin123`
 
-# 构建生产环境
-npm run build:prod 或 yarn build:prod
+## 目录结构
+
+```
+Subcontract-Processing/
+├── ruoyi-fastapi-frontend/     # 前端项目 (Vue3)
+│   ├── src/
+│   │   ├── api/                # API 接口
+│   │   ├── views/              # 页面视图
+│   │   ├── components/         # 公共组件
+│   │   ├── store/              # 状态管理
+│   │   └── utils/              # 工具函数
+│   ├── .env.development        # 开发环境配置
+│   └── package.json
+├── ruoyi-fastapi-app/          # 移动端项目 (UniApp)
+│   ├── src/
+│   │   ├── pages/              # 页面
+│   │   ├── api/                # API 接口
+│   │   └── utils/              # 工具函数
+│   └── manifest.json
+├── ruoyi-fastapi-backend/      # 后端项目 (FastAPI)
+│   ├── app.py                  # 启动入口
+│   ├── server.py               # 应用工厂
+│   ├── cli/                    # 命令行工具
+│   ├── module_entrust/         # 委外模块
+│   │   ├── controller/         # 控制器
+│   │   ├── service/            # 服务层
+│   │   ├── entity/             # 实体类
+│   │   └── dao/                # 数据访问层
+│   ├── module_admin/           # 系统管理模块
+│   ├── sql/                    # SQL 脚本
+│   ├── .env.dev                # 开发环境配置
+│   └── requirements.txt
+├── sql/                        # 数据库脚本
+│   ├── ruoyi-fastapi.sql       # MySQL 建表脚本
+│   └── ruoyi-fastapi-pg.sql    # PostgreSQL 建表脚本
+├── docker-compose.my.yml       # Docker Compose MySQL 配置
+├── docker-compose.pg.yml       # Docker Compose PostgreSQL 配置
+└── README.md
 ```
 
-#### 后端
+## 核心功能说明
 
-```bash
-# 配置环境
-在.env.prod文件中配置生产环境的数据库和redis
+### 委外业务流程
 
-# 运行后端
-ruoyi app run --env=prod
-```
+1. **项目管理**：创建项目 → 添加模具套 → 添加零件
+2. **询价管理**：创建询价单 → 选择加工方 → 发送邀请
+3. **报价管理**：加工方收到邀请 → 查看询价详情 → 提交报价
+4. **选标管理**：我方查看报价 → 选择中标方 → 生成委外工单
+5. **工单管理**：工单分配 → 生产跟踪 → 质量检验 → 交付确认
 
-### Docker Compose部署方式
+### 权限控制
 
-> ⚠️ **警告：** 默认未做数据持久化配置，请注意数据备份或自行配置持久化
+- 支持角色权限、部门权限、数据范围权限
+- 支持动态菜单加载
+- 支持按钮级权限控制
 
-#### MySQL版本
+## Docker 部署
+
+### MySQL 版本
 
 ```bash
 docker compose -f docker-compose.my.yml up -d --build
 ```
 
-#### PostgreSQL版本
+### PostgreSQL 版本
 
 ```bash
 docker compose -f docker-compose.pg.yml up -d --build
 ```
 
-## 交流与赞助
+## 常见问题
 
-如果有对本项目及FastAPI感兴趣的朋友，欢迎加入知识星球一起交流学习，让我们一起变得更强。如果你觉得这个项目帮助到了你，你可以请作者喝杯咖啡表示鼓励☕。扫描下面微信二维码添加微信备注VF-Admin即可进群。
-<table>
-    <tr>
-        <td>
-            <img alt="zsxq" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/zsxq.jpg">
-        </td>
-        <td>
-            <img alt="zanzhu" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/zanzhu.jpg">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img alt="wxcode" src="https://gitee.com/insistence2022/ruoyi-fastapi-pictures/raw/master/common/wxcode.jpg">
-        </td>
-    </tr>
-</table>
+### 1. 端口冲突
+
+如果 80 端口被占用，修改 `.env.dev` 中的 `APP_PORT` 配置。
+
+### 2. 数据库连接失败
+
+- 确认数据库服务已启动
+- 检查 `.env.dev` 中的数据库连接配置
+- 确认数据库已创建
+
+### 3. Redis 连接失败
+
+- 确认 Redis 服务已启动
+- 检查 `.env.dev` 中的 Redis 连接配置
+
+### 4. 前端依赖安装失败
+
+使用国内镜像源：
+```bash
+npm install --registry=https://registry.npmmirror.com
+```
+
+## 项目结构文档
+
+详细的目录结构和功能说明请参考 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
+
+## 注意事项
+
+- 图纸文件（.prt、.dxf）已排除在 Git 管理之外，不会上传到仓库
+- 首次运行前请务必初始化数据库
+- 建议使用 PostgreSQL 数据库以获得更好的性能
+- 生产环境请修改默认账号密码
+
+## 开发规范
+
+- 后端代码使用 Ruff 进行代码检查
+- 遵循 PEP 8 编码规范
+- 前端使用 ESLint 进行代码检查
+
+## 许可证
+
+MIT License
