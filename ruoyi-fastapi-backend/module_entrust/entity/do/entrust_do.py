@@ -182,6 +182,7 @@ class EntrustOutsourceRequest(Base):
     order_no = Column(String(64), comment='订单号')
     inquiry_date = Column(Date, comment='询价日期')
     delivery_date = Column(Date, comment='交付日期')
+    material_preparation = Column(String(32), default='our_side', comment='备料情况：our_side-我方备料 supplier-加工方备料')
 
 
 class EntrustInvitation(Base):

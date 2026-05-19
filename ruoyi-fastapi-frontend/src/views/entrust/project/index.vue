@@ -13,8 +13,7 @@
             <el-form-item label="状态" prop="status">
                <el-select v-model="queryParams.status" placeholder="项目状态" clearable style="width: 200px">
                   <el-option label="草稿" value="drafted" />
-                  <el-option label="待审批" value="pending_approval" />
-                  <el-option label="已审批" value="confirmed" />
+                  <el-option label="已确认" value="confirmed" />
                   <el-option label="进行中" value="in_progress" />
                   <el-option label="已完成" value="completed" />
                </el-select>
@@ -40,20 +39,17 @@
             <el-table-column label="状态" align="center" prop="status" width="100">
                <template #default="scope">
                   <el-tag v-if="scope.row.status === 'drafted'" type="info">草稿</el-tag>
-                  <el-tag v-else-if="scope.row.status === 'pending_approval'" type="warning">待审批</el-tag>
-                  <el-tag v-else-if="scope.row.status === 'confirmed'" type="success">已审批</el-tag>
+                  <el-tag v-else-if="scope.row.status === 'confirmed'" type="success">已确认</el-tag>
                   <el-tag v-else-if="scope.row.status === 'in_progress'">进行中</el-tag>
                   <el-tag v-else-if="scope.row.status === 'completed'" type="success">已完成</el-tag>
                </template>
             </el-table-column>
             <el-table-column label="创建时间" align="center" prop="created_at" width="180" />
-            <el-table-column label="操作" align="center" width="400" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="300" class-name="small-padding fixed-width">
                <template #default="scope">
                   <el-button link type="primary" icon="View" @click="openDetail(scope.row)">详情</el-button>
                   <el-button v-if="scope.row.status === 'drafted'" link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
-                  <el-button v-if="scope.row.status === 'drafted'" link type="warning" icon="Promotion" @click="handleSubmit(scope.row)">提交</el-button>
-                  <el-button v-if="scope.row.status === 'pending_approval' && canApprove" link type="success" icon="Check" @click="handleApprove(scope.row)">审批</el-button>
-                  <el-button v-if="scope.row.status === 'pending_approval' && canApprove" link type="danger" icon="Close" @click="handleReject(scope.row)">驳回</el-button>
+                  <el-button v-if="scope.row.status === 'drafted'" link type="success" icon="Position" @click="handleSubmit(scope.row)">决策</el-button>
                   <el-button v-if="scope.row.status === 'drafted' || isAdmin" link type="danger" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
                </template>
             </el-table-column>
@@ -98,8 +94,7 @@
             <el-descriptions-item label="截止日期">{{ currentProject.deadline }}</el-descriptions-item>
             <el-descriptions-item label="状态">
                <el-tag v-if="currentProject.status === 'drafted'" type="info">草稿</el-tag>
-               <el-tag v-else-if="currentProject.status === 'pending_approval'" type="warning">待审批</el-tag>
-               <el-tag v-else-if="currentProject.status === 'confirmed'" type="success">已审批</el-tag>
+               <el-tag v-else-if="currentProject.status === 'confirmed'" type="success">已确认</el-tag>
                <el-tag v-else-if="currentProject.status === 'in_progress'">进行中</el-tag>
                <el-tag v-else-if="currentProject.status === 'completed'" type="success">已完成</el-tag>
             </el-descriptions-item>
@@ -239,12 +234,10 @@
 
             <!-- 候选加工商 Tab -->
             <el-tab-pane label="候选加工商" name="match">
-               <div v-if="currentProject.status === 'drafted' || currentProject.status === 'pending_approval'" style="text-align:center;padding:40px;color:#999">
-                  <template v-if="currentProject.status === 'drafted'">项目尚未提交，请先在列表页点击"提交"按钮</template>
-                  <template v-else>项目已提交，等待经理审批通过后将展示候选加工方</template>
+               <div v-if="currentProject.status === 'drafted'" style="text-align:center;padding:40px;color:#999">
+                  项目尚未确认，请先在列表页点击"决策"按钮
                </div>
                <div v-else>
-                  <el-button type="primary" plain icon="Refresh" @click="loadMatchResult" class="mb8">刷新匹配</el-button>
                   <el-button v-if="noPriceSuppliers.length > 0" type="warning" plain icon="Promotion" @click="openBatchInquiry" class="mb8">批量询价（{{ noPriceSuppliers.length }}个无价格加工方）</el-button>
 
                   <!-- 所需工艺摘要 -->
@@ -269,6 +262,14 @@
                            <template #default="scope">
                               <span v-if="scope.row.has_price" style="color:#67C23A;font-weight:bold">¥{{ scope.row.base_price }}</span>
                               <el-tag v-else type="info" size="small">待询价</el-tag>
+                           </template>
+                        </el-table-column>
+                        <el-table-column label="询价状态" width="110" align="center">
+                           <template #default="scope">
+                              <el-tag v-if="!scope.row.inquiry_status" type="info" size="small">未询价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'sent' || scope.row.inquiry_status === 'draft_quoted'" size="small">已询价待回复</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'quoted'" type="success" size="small">已报价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'declined'" type="danger" size="small">已拒绝</el-tag>
                            </template>
                         </el-table-column>
                         <el-table-column label="覆盖率" width="80" align="center">
@@ -307,6 +308,14 @@
                            <template #default="scope">
                               <span v-if="scope.row.has_price" style="color:#67C23A;font-weight:bold">¥{{ scope.row.base_price }}</span>
                               <el-tag v-else type="info" size="small">待询价</el-tag>
+                           </template>
+                        </el-table-column>
+                        <el-table-column label="询价状态" width="110" align="center">
+                           <template #default="scope">
+                              <el-tag v-if="!scope.row.inquiry_status" type="info" size="small">未询价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'sent' || scope.row.inquiry_status === 'draft_quoted'" size="small">已询价待回复</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'quoted'" type="success" size="small">已报价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'declined'" type="danger" size="small">已拒绝</el-tag>
                            </template>
                         </el-table-column>
                         <el-table-column label="覆盖率" width="80" align="center">
@@ -350,6 +359,14 @@
                            <template #default="scope">
                               <span v-if="scope.row.has_price" style="color:#67C23A;font-weight:bold">¥{{ scope.row.base_price }}</span>
                               <el-tag v-else type="info" size="small">待询价</el-tag>
+                           </template>
+                        </el-table-column>
+                        <el-table-column label="询价状态" width="110" align="center">
+                           <template #default="scope">
+                              <el-tag v-if="!scope.row.inquiry_status" type="info" size="small">未询价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'sent' || scope.row.inquiry_status === 'draft_quoted'" size="small">已询价待回复</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'quoted'" type="success" size="small">已报价</el-tag>
+                              <el-tag v-else-if="scope.row.inquiry_status === 'declined'" type="danger" size="small">已拒绝</el-tag>
                            </template>
                         </el-table-column>
                         <el-table-column label="覆盖率" width="80" align="center">
@@ -437,6 +454,14 @@
                      <el-date-picker v-model="inquiryForm.delivery_date" type="date" value-format="YYYY-MM-DD" placeholder="交付日期" style="width:100%" />
                   </el-form-item>
                </el-col>
+               <el-col :span="8">
+                  <el-form-item label="备料情况" prop="material_preparation">
+                     <el-select v-model="inquiryForm.material_preparation" placeholder="请选择" style="width:100%">
+                        <el-option label="我方备料" value="our_side" />
+                        <el-option label="加工方备料" value="supplier" />
+                     </el-select>
+                  </el-form-item>
+               </el-col>
             </el-row>
 
             <!-- 询价范围（从项目零件自动导入） -->
@@ -467,12 +492,20 @@
 
             <!-- 选择加工方 -->
             <el-divider content-position="left">选择加工方</el-divider>
-            <el-table :data="allMatchedSuppliers" border size="small" @selection-change="handleSupplierSelect" ref="supplierTableRef">
-               <el-table-column type="selection" width="50" />
+            <el-table :data="allMatchedSuppliers" border size="small" @selection-change="handleSupplierSelect" ref="supplierTableRef" :selectable="canSelectSupplier">
+               <el-table-column type="selection" width="50" :selectable="canSelectSupplier" />
                <el-table-column label="加工方" prop="supplier_name" width="160" />
                <el-table-column label="地区" width="100" align="center">
                   <template #default="scope">
                      <span>{{ scope.row.province }} {{ scope.row.city }}</span>
+                  </template>
+               </el-table-column>
+               <el-table-column label="询价状态" width="120" align="center">
+                  <template #default="scope">
+                     <el-tag v-if="!scope.row.inquiry_status" type="info" size="small">未询价</el-tag>
+                     <el-tag v-else-if="scope.row.inquiry_status === 'sent' || scope.row.inquiry_status === 'draft_quoted'" type="warning" size="small">已询价待回复</el-tag>
+                     <el-tag v-else-if="scope.row.inquiry_status === 'quoted'" type="success" size="small">已报价</el-tag>
+                     <el-tag v-else-if="scope.row.inquiry_status === 'declined'" type="danger" size="small">已拒绝</el-tag>
                   </template>
                </el-table-column>
                <el-table-column label="联系人" prop="contact_name" width="100" />
@@ -495,7 +528,7 @@ import { listProject, getProject, addProject, updateProject, delProject,
          listMold, addMold, delMold,
          listPart, addPart, updatePart, delPart,
          listProcessMethods, listAttachments,
-         submitProject, approveProject, rejectProject, getMatchResult } from "@/api/entrust/project";
+         submitProject, getMatchResult } from "@/api/entrust/project";
 import { addInquiry, sendInquiry } from "@/api/entrust/inquiry";
 import { getToken } from '@/utils/auth'
 import useUserStore from '@/store/modules/user'
@@ -585,39 +618,15 @@ function handleDelete(row) {
 }
 
 function handleSubmit(row) {
-   proxy.$modal.confirm('确认提交项目"' + row.name + '"？提交后将等待经理审批。').then(() => {
+   proxy.$modal.confirm('确认项目"' + row.name + '"？确认后将生成候选加工方列表。').then(() => {
       return submitProject(row.id);
    }).then(res => {
-      proxy.$modal.msgSuccess("提交成功，等待审批");
+      proxy.$modal.msgSuccess("项目已确认，候选加工方已生成");
       getList();
-      if (detailVisible.value && currentProject.value && currentProject.value.id === row.id) {
-         currentProject.value.status = 'pending_approval';
-      }
-   }).catch(() => {});
-}
-
-function handleApprove(row) {
-   proxy.$modal.confirm('确认审批通过项目"' + row.name + '"？通过后将触发加工方匹配。').then(() => {
-      return approveProject(row.id);
-   }).then(res => {
-      proxy.$modal.msgSuccess("审批通过");
-      getList();
-      if (detailVisible.value && currentProject.value && currentProject.value.id === row.id) {
-         currentProject.value.status = 'confirmed';
-         loadMatchResult();
-      }
-   }).catch(() => {});
-}
-
-function handleReject(row) {
-   proxy.$modal.confirm('确认驳回项目"' + row.name + '"？驳回后可重新编辑提交。').then(() => {
-      return rejectProject(row.id);
-   }).then(res => {
-      proxy.$modal.msgSuccess("已驳回");
-      getList();
-      if (detailVisible.value && currentProject.value && currentProject.value.id === row.id) {
-         currentProject.value.status = 'drafted';
-      }
+      // 自动打开详情并切换到候选加工商Tab
+      row.status = 'confirmed';
+      openDetail(row);
+      activeTab.value = 'match';
    }).catch(() => {});
 }
 
@@ -807,7 +816,13 @@ const inquiryRules = {
    customer_name: [{ required: true, message: '请填写客户名称', trigger: 'blur' }],
    deadline: [{ required: true, message: '请选择截止报价日期', trigger: 'change' }],
    delivery_date: [{ required: true, message: '请选择交付日期', trigger: 'change' }],
+   material_preparation: [{ required: true, message: '请选择备料情况', trigger: 'change' }],
 };
+
+function canSelectSupplier(row) {
+   // 已询价待回复的加工方不允许重复选择（已报价/已拒绝/未询价可以选）
+   return !row.inquiry_status || row.inquiry_status === 'quoted' || row.inquiry_status === 'declined';
+}
 
 function openBatchInquiry() {
    batchInquiryOpen.value = true;
@@ -837,6 +852,7 @@ function openInquiryForm() {
       inquiry_date: today.toISOString().slice(0, 10),
       deadline: deadlineDate.toISOString().slice(0, 10),
       delivery_date: '',
+      material_preparation: '',
       scope_json: scope,
    };
    selectedSuppliers.value = [];
@@ -862,6 +878,8 @@ function submitInquiryForm() {
       }).then(() => {
          proxy.$modal.msgSuccess('询价单已创建并发送给 ' + supplierIds.length + ' 个加工方');
          inquiryFormOpen.value = false;
+         // 刷新匹配结果以更新询价状态
+         loadMatchResult();
       });
    });
 }
@@ -874,7 +892,7 @@ function exportInquiryXlsx() {
       ['客户', inquiryForm.value.customer_name, '', '订单号', inquiryForm.value.order_no],
       ['联系人', inquiryForm.value.customer_contact, '', '电话', inquiryForm.value.customer_phone],
       ['询价日期', inquiryForm.value.inquiry_date, '', '截止日期', inquiryForm.value.deadline],
-      ['交付日期', inquiryForm.value.delivery_date],
+      ['交付日期', inquiryForm.value.delivery_date, '', '备料情况', inquiryForm.value.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       [],
       ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
    ];
@@ -902,12 +920,14 @@ function loadMatchResult() {
 function openDetail(row) {
    currentProject.value = row;
    detailVisible.value = true;
-   activeTab.value = 'molds';
+   if (!activeTab.value || activeTab.value === 'molds') {
+      activeTab.value = 'molds';
+   }
    loadMolds();
    loadParts();
    loadAttachments();
    loadProcessMethods();
-   if (row.status === 'confirmed') {
+   if (row.status !== 'drafted') {
       loadMatchResult();
    }
    uploadUrl.value = import.meta.env.VITE_APP_BASE_API + '/entrust/project/' + row.id + '/attachments';

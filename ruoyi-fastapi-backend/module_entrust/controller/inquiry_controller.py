@@ -75,6 +75,7 @@ async def get_my_invitations(
                 'order_no': req.order_no,
                 'inquiry_date': req.inquiry_date.isoformat() if req.inquiry_date else None,
                 'delivery_date': req.delivery_date.isoformat() if req.delivery_date else None,
+                'material_preparation': req.material_preparation,
                 'created_by': req.created_by,
                 # 加工方自身信息
                 'supplier_name': supplier.name,
@@ -98,6 +99,20 @@ async def get_inquiry_list(
 ):
     query = InquiryQuery(project_id=project_id, status=status, page_num=page_num, page_size=page_size)
     rows, total = await InquiryService.get_inquiry_list(query_db, query)
+    return ResponseUtil.success(rows=[r.model_dump() for r in rows], dict_content={'total': total})
+
+
+@inquiry_controller.get(
+    '/grouped-list',
+    summary='按项目分组的询价汇总列表',
+    response_model=PageResponseModel,
+)
+async def get_grouped_inquiry_list(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    page_num: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+):
+    rows, total = await InquiryService.get_grouped_list(query_db, page_num, page_size)
     return ResponseUtil.success(rows=[r.model_dump() for r in rows], dict_content={'total': total})
 
 
@@ -234,9 +249,27 @@ async def award_inquiry(
     inquiry_id: int = Path(..., description='询价单ID'),
     quotation_id: int = Path(..., description='报价单ID'),
 ):
-    result = await InquiryService.award_inquiry(
-        query_db, inquiry_id, quotation_id, current_user.user.user_id if current_user.user else 0
-    )
+    try:
+        result = await InquiryService.award_inquiry(
+            query_db, inquiry_id, quotation_id, current_user.user.user_id if current_user.user else 0
+        )
+    except ValueError as e:
+        return ResponseUtil.failure(msg=str(e))
     if not result:
         return ResponseUtil.failure(msg='选标失败')
     return ResponseUtil.success(data=result.model_dump(), msg='选标成功，已生成委外工单')
+
+
+@inquiry_controller.get(
+    '/order/list',
+    summary='查询委外工单列表',
+    response_model=PageResponseModel,
+)
+async def get_order_list(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    page_num: int = Query(default=1, ge=1, description='页码'),
+    page_size: int = Query(default=10, ge=1, le=100, description='每页条数'),
+    status: str = Query(default=None, description='工单状态'),
+):
+    rows, total = await InquiryService.get_order_list(query_db, page_num, page_size, status)
+    return ResponseUtil.success(rows=rows, dict_content={'total': total})

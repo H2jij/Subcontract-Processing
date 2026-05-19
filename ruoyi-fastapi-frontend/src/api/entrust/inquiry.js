@@ -94,3 +94,12 @@ export function getMyInvitations(params) {
     params: params
   })
 }
+
+// 按项目分组的询价汇总列表
+export function getGroupedInquiryList(params) {
+  return request({
+    url: '/entrust/inquiry/grouped-list',
+    method: 'get',
+    params: params
+  })
+}

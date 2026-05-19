@@ -76,7 +76,7 @@ async def get_process_methods(
 
 @project_controller.post(
     '/{project_id}/submit',
-    summary='提交项目（待审批）',
+    summary='决策：确认项目并触发匹配',
     response_model=DataResponseModel,
 )
 async def submit_project(
@@ -89,17 +89,22 @@ async def submit_project(
     if not project:
         return ResponseUtil.failure(msg='项目不存在')
     if project.status not in ('drafted',):
-        return ResponseUtil.failure(msg='当前状态不允许提交')
+        return ResponseUtil.failure(msg='当前状态不允许操作')
 
-    # 更新状态为待审批
-    project.status = 'pending_approval'
+    # 直接确认项目（无需审批）
+    project.status = 'confirmed'
+    project.confirmed_at = datetime.now()
     await query_db.flush()
     await query_db.commit()
     await query_db.refresh(project)
+
+    # 执行匹配
+    result = await MatchService.match_suppliers(query_db, project_id)
     return ResponseUtil.success(data={
         'project_id': project_id,
         'status': project.status,
-    }, msg='提交成功，等待审批')
+        'match_result': result,
+    }, msg='项目已确认，候选加工方已生成')
 
 
 @project_controller.post(

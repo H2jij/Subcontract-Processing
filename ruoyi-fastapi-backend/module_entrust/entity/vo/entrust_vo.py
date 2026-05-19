@@ -212,6 +212,7 @@ class InquiryCreate(BaseModel):
     order_no: Optional[str] = None
     inquiry_date: Optional[date] = None
     delivery_date: Optional[date] = None
+    material_preparation: Optional[str] = Field(default='our_side', description='备料情况：our_side-我方备料 supplier-加工方备料')
 
 
 class InquirySend(BaseModel):
@@ -241,6 +242,7 @@ class InquiryResponse(BaseModel):
     order_no: Optional[str] = None
     inquiry_date: Optional[date] = None
     delivery_date: Optional[date] = None
+    material_preparation: Optional[str] = None
 
     model_config = {'from_attributes': True}
 
@@ -338,6 +340,64 @@ class BatchInquiryRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     deadline: Optional[date] = None
     supplier_ids: list[int] = Field(..., min_length=1)
+
+
+# ============================================================================
+# 按项目分组的询价汇总
+# ============================================================================
+
+class GroupedSupplierQuote(BaseModel):
+    """分组后每个加工方的报价信息"""
+    supplier_id: int
+    supplier_name: str
+    province: Optional[str] = None
+    city: Optional[str] = None
+    invitation_id: Optional[int] = None
+    invitation_status: Optional[str] = None  # sent/draft_quoted/quoted/declined
+    request_id: Optional[int] = None  # 关联的询价单ID
+    quotation_id: Optional[int] = None
+    unit_price: Optional[float] = None
+    lead_time_days: Optional[int] = None
+    delivery_date: Optional[date] = None  # 询价单中用户指定的交付日期
+    lines_json: Optional[Any] = None
+    note: Optional[str] = None
+    quoted_at: Optional[datetime] = None
+    sent_at: Optional[datetime] = None
+    rank: Optional[int] = None
+    rank_description: Optional[str] = None
+
+
+class GroupedInquiryBrief(BaseModel):
+    """分组中每个询价单的摘要（用于导出）"""
+    id: int
+    title: Optional[str] = None
+    scope_json: Optional[Any] = None
+    deadline: Optional[date] = None
+    status: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_contact: Optional[str] = None
+    customer_phone: Optional[str] = None
+    order_no: Optional[str] = None
+    inquiry_date: Optional[date] = None
+    delivery_date: Optional[date] = None
+    material_preparation: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {'from_attributes': True}
+
+
+class InquiryGroupedResponse(BaseModel):
+    """按项目分组的询价汇总"""
+    project_id: int
+    project_name: Optional[str] = None
+    project_no: Optional[str] = None
+    inquiry_count: int = 0
+    latest_inquiry_at: Optional[datetime] = None
+    quoted_supplier_count: int = 0
+    total_supplier_count: int = 0
+    suppliers: list[GroupedSupplierQuote] = Field(default_factory=list)
+    inquiries: list[GroupedInquiryBrief] = Field(default_factory=list)
+    has_order: bool = False
 
 
 # ============================================================================
