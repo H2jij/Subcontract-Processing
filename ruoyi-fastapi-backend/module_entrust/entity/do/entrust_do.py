@@ -23,15 +23,26 @@ class EntrustSupplier(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')
     name = Column(String(255), nullable=False, comment='供应商名称')
+    supplier_type = Column(String(32), default='processor', comment='类型：processor-加工方 material-材料方 other-其他')
     category = Column(String(128), comment='供应商分类')
     province = Column(String(64), comment='省')
     city = Column(String(64), comment='市')
     address = Column(String(512), comment='地址')
+    legal_rep = Column(String(64), comment='法定代表人')
     contact_name = Column(String(64), comment='联系人')
     contact_phone = Column(String(32), comment='联系电话')
+    contact_email = Column(String(255), comment='联系邮箱（合同发送收件地址）')
+    credit_code = Column(String(64), comment='统一社会信用代码')
+    bank_name = Column(String(128), comment='开户银行')
+    bank_account = Column(String(64), comment='银行账号')
+    bank_account_name = Column(String(128), comment='银行开户名')
     rating = Column(Numeric(4, 2), comment='评分')
     status = Column(String(32), default='active', comment='状态：active-启用 disabled-停用')
     base_price = Column(Numeric(14, 2), comment='基准加工单价（参考价）')
+    contract_amount = Column(Numeric(14, 2), comment='框架合同额度')
+    contract_start = Column(Date, comment='合同起始日期')
+    contract_end = Column(Date, comment='合同终止日期')
+    signed_at = Column(Date, comment='合同签订日期')
     remark = Column(Text, comment='备注')
     user_id = Column(BigInteger, comment='关联系统用户ID（加工方登录账号）')
     created_by = Column(BigInteger, comment='创建人')
@@ -307,3 +318,20 @@ class EntrustChatMessage(Base):
     message_type = Column(String(16), nullable=False, default='text', comment='消息类型: text/quotation/inquiry/file')
     extra_data = Column(JSONB, comment='扩展数据(卡片/文件元信息)')
     created_at = Column(DateTime, default=datetime.now)
+
+
+class EntrustContractRecord(Base):
+    """合同发送历史记录表"""
+    __tablename__ = 'entrust_contract_records'
+    __table_args__ = {'comment': '合同发送历史记录'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')
+    inquiry_id = Column(Integer, nullable=False, comment='询价单ID')
+    supplier_id = Column(Integer, nullable=False, comment='加工方ID')
+    recipient_email = Column(String(255), nullable=False, comment='收件邮箱')
+    status = Column(String(16), nullable=False, default='sent', comment='状态：sent/failed')
+    smtp_message_id = Column(String(255), comment='SMTP Message-ID')
+    error_message = Column(Text, comment='失败原因')
+    sent_at = Column(DateTime, default=datetime.now, comment='发送时间')
+    created_by = Column(BigInteger, comment='操作人')
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')

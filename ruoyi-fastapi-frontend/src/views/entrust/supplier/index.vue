@@ -2,15 +2,22 @@
    <div class="app-container">
       <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
          <el-form-item label="名称" prop="name">
-            <el-input v-model="queryParams.name" placeholder="请输入加工方名称" clearable style="width: 200px" @keyup.enter="handleQuery" />
+            <el-input v-model="queryParams.name" placeholder="请输入名称" clearable style="width: 200px" @keyup.enter="handleQuery" />
+         </el-form-item>
+         <el-form-item label="类型" prop="supplier_type">
+            <el-select v-model="queryParams.supplier_type" placeholder="全部类型" clearable style="width: 120px">
+               <el-option label="加工方" value="processor" />
+               <el-option label="材料方" value="material" />
+               <el-option label="其他" value="other" />
+            </el-select>
          </el-form-item>
          <el-form-item label="分类" prop="category">
-            <el-input v-model="queryParams.category" placeholder="请输入分类" clearable style="width: 200px" @keyup.enter="handleQuery" />
+            <el-input v-model="queryParams.category" placeholder="请输入分类" clearable style="width: 150px" @keyup.enter="handleQuery" />
          </el-form-item>
          <el-form-item label="状态" prop="status">
-            <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 200px">
+            <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 100px">
                <el-option label="启用" value="active" />
-               <el-option label="停用" value="inactive" />
+               <el-option label="停用" value="disabled" />
             </el-select>
          </el-form-item>
          <el-form-item>
@@ -28,24 +35,24 @@
 
       <el-table v-loading="loading" :data="supplierList" class="wrap-table">
          <el-table-column label="编号" align="center" prop="id" width="60" />
-         <el-table-column label="加工方名称" prop="name" min-width="200" />
-         <el-table-column label="分类" align="center" prop="category" width="90" />
-         <el-table-column label="省" align="center" prop="province" width="70" />
-         <el-table-column label="市" align="center" prop="city" width="70" />
-         <el-table-column label="地址" prop="address" min-width="300" />
-         <el-table-column label="联系人" align="center" prop="contact_name" width="80" />
-         <el-table-column label="电话" align="center" prop="contact_phone" width="120" />
-         <el-table-column label="参考单价" align="center" width="100">
+         <el-table-column label="名称" prop="name" min-width="180" />
+         <el-table-column label="类型" align="center" width="80">
             <template #default="scope">
-               <span v-if="scope.row.base_price">¥{{ scope.row.base_price }}</span>
-               <span v-else style="color:#999">-</span>
+               <el-tag v-if="scope.row.supplier_type === 'processor'" type="primary" size="small">加工方</el-tag>
+               <el-tag v-else-if="scope.row.supplier_type === 'material'" type="warning" size="small">材料方</el-tag>
+               <el-tag v-else type="info" size="small">其他</el-tag>
             </template>
          </el-table-column>
+         <el-table-column label="分类" align="center" prop="category" width="90" />
+         <el-table-column label="法定代表人" align="center" prop="legal_rep" width="90" />
+         <el-table-column label="联系人" align="center" prop="contact_name" width="80" />
+         <el-table-column label="电话" align="center" prop="contact_phone" width="120" />
+         <el-table-column label="邮箱" prop="contact_email" min-width="160" show-overflow-tooltip />
+         <el-table-column label="信用代码" prop="credit_code" min-width="160" show-overflow-tooltip />
          <el-table-column label="状态" align="center" prop="status" width="70">
             <template #default="scope">
                <el-tag v-if="scope.row.status === 'active'" type="success">启用</el-tag>
-               <el-tag v-else-if="scope.row.status === 'inactive'" type="info">停用</el-tag>
-               <el-tag v-else type="warning">{{ scope.row.status }}</el-tag>
+               <el-tag v-else type="info">停用</el-tag>
             </template>
          </el-table-column>
          <el-table-column v-if="isAdmin" label="关联账号" align="center" width="120">
@@ -67,20 +74,75 @@
       <pagination v-show="total > 0" :total="total" v-model:page="queryParams.page_num" v-model:limit="queryParams.page_size" @pagination="getList" />
 
       <!-- 添加或修改对话框 -->
-      <el-dialog :title="title" v-model="open" width="600px" append-to-body>
-         <el-form ref="supplierRef" :model="form" :rules="rules" label-width="100px">
+      <el-dialog :title="title" v-model="open" width="700px" append-to-body>
+         <el-form ref="supplierRef" :model="form" :rules="rules" label-width="110px">
+            <el-divider content-position="left">基本信息</el-divider>
             <el-row :gutter="20">
                <el-col :span="12">
-                  <el-form-item label="加工方名称" prop="name">
-                     <el-input v-model="form.name" placeholder="请输入加工方名称" />
+                  <el-form-item label="名称" prop="name">
+                     <el-input v-model="form.name" placeholder="请输入名称" />
                   </el-form-item>
                </el-col>
                <el-col :span="12">
-                  <el-form-item label="分类" prop="category">
-                     <el-input v-model="form.category" placeholder="如：机加工、钣金、铸造等" />
+                  <el-form-item label="供应商类型" prop="supplier_type">
+                     <el-select v-model="form.supplier_type" placeholder="请选择类型" style="width:100%">
+                        <el-option label="加工方" value="processor" />
+                        <el-option label="材料方" value="material" />
+                        <el-option label="其他" value="other" />
+                     </el-select>
                   </el-form-item>
                </el-col>
             </el-row>
+            <el-row :gutter="20">
+               <el-col :span="12">
+                  <el-form-item label="分类" prop="category">
+                     <el-input v-model="form.category" placeholder="如：钢料、全工序、五金等" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="状态" prop="status">
+                     <el-select v-model="form.status" placeholder="请选择状态" style="width:100%">
+                        <el-option label="启用" value="active" />
+                        <el-option label="停用" value="disabled" />
+                     </el-select>
+                  </el-form-item>
+               </el-col>
+            </el-row>
+
+            <el-divider content-position="left">联系信息（合同自动填充）</el-divider>
+            <el-row :gutter="20">
+               <el-col :span="12">
+                  <el-form-item label="法定代表人" prop="legal_rep">
+                     <el-input v-model="form.legal_rep" placeholder="合同乙方法定代表人" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="联系人" prop="contact_name">
+                     <el-input v-model="form.contact_name" placeholder="日常联系人" />
+                  </el-form-item>
+               </el-col>
+            </el-row>
+            <el-row :gutter="20">
+               <el-col :span="12">
+                  <el-form-item label="联系电话" prop="contact_phone">
+                     <el-input v-model="form.contact_phone" placeholder="联系电话" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="联系邮箱" prop="contact_email">
+                     <el-input v-model="form.contact_email" placeholder="合同发送收件邮箱" />
+                  </el-form-item>
+               </el-col>
+            </el-row>
+            <el-row :gutter="20">
+               <el-col :span="24">
+                  <el-form-item label="统一社会信用代码" prop="credit_code">
+                     <el-input v-model="form.credit_code" placeholder="18位统一社会信用代码" maxlength="18" show-word-limit />
+                  </el-form-item>
+               </el-col>
+            </el-row>
+
+            <el-divider content-position="left">地址信息</el-divider>
             <el-row :gutter="20">
                <el-col :span="12">
                   <el-form-item label="省" prop="province">
@@ -93,29 +155,37 @@
                   </el-form-item>
                </el-col>
             </el-row>
-            <el-row :gutter="20">
-               <el-col :span="12">
-                  <el-form-item label="联系人" prop="contact_name">
-                     <el-input v-model="form.contact_name" placeholder="请输入联系人" />
-                  </el-form-item>
-               </el-col>
-               <el-col :span="12">
-                  <el-form-item label="联系电话" prop="contact_phone">
-                     <el-input v-model="form.contact_phone" placeholder="请输入联系电话" />
-                  </el-form-item>
-               </el-col>
-            </el-row>
-            <el-row :gutter="20">
-               <el-col :span="12">
-                  <el-form-item label="参考单价" prop="base_price">
-                     <el-input-number v-model="form.base_price" :min="0" :precision="2" placeholder="基准加工单价" style="width: 100%" />
-                  </el-form-item>
-               </el-col>
-            </el-row>
-            <el-form-item label="地址" prop="address">
+            <el-form-item label="详细地址" prop="address">
                <el-input v-model="form.address" placeholder="请输入详细地址" />
             </el-form-item>
-            <el-divider v-if="isAdmin" content-position="left">登录账号（选填，填写后自动创建加工方登录账号）</el-divider>
+
+            <el-divider content-position="left">合同信息</el-divider>
+            <el-row :gutter="20">
+               <el-col :span="12">
+                  <el-form-item label="框架合同额度" prop="contract_amount">
+                     <el-input-number v-model="form.contract_amount" :min="0" :precision="2" placeholder="元" style="width:100%" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="参考单价" prop="base_price">
+                     <el-input-number v-model="form.base_price" :min="0" :precision="2" placeholder="元" style="width:100%" />
+                  </el-form-item>
+               </el-col>
+            </el-row>
+            <el-row :gutter="20">
+               <el-col :span="12">
+                  <el-form-item label="合同起始日期" prop="contract_start">
+                     <el-date-picker v-model="form.contract_start" type="date" value-format="YYYY-MM-DD" placeholder="合同起始日期" style="width:100%" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="合同终止日期" prop="contract_end">
+                     <el-date-picker v-model="form.contract_end" type="date" value-format="YYYY-MM-DD" placeholder="合同终止日期" style="width:100%" />
+                  </el-form-item>
+               </el-col>
+            </el-row>
+
+            <el-divider v-if="isAdmin" content-position="left">登录账号（选填）</el-divider>
             <el-row v-if="isAdmin" :gutter="20">
                <el-col :span="12">
                   <el-form-item label="登录账号" prop="link_username">
@@ -134,6 +204,7 @@
                   </el-form-item>
                </el-col>
             </el-row>
+
             <el-form-item label="备注" prop="remark">
                <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
             </el-form-item>
@@ -202,6 +273,7 @@ const data = reactive({
       page_num: 1,
       page_size: 10,
       name: undefined,
+      supplier_type: undefined,
       category: undefined,
       status: undefined,
    },
@@ -229,9 +301,13 @@ function cancel() {
 
 function reset() {
    form.value = {
-      name: undefined, category: undefined, province: undefined, city: undefined,
-      address: undefined, contact_name: undefined, contact_phone: undefined,
-      rating: undefined, base_price: undefined, remark: undefined,
+      name: undefined, supplier_type: 'processor', category: undefined,
+      province: undefined, city: undefined, address: undefined,
+      legal_rep: undefined, contact_name: undefined, contact_phone: undefined,
+      contact_email: undefined, credit_code: undefined,
+      rating: undefined, base_price: undefined,
+      contract_amount: undefined, contract_start: undefined, contract_end: undefined,
+      status: 'active', remark: undefined,
       link_username: undefined, link_password: undefined,
    };
    proxy.resetForm("supplierRef");

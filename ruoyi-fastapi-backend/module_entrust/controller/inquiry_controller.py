@@ -1,10 +1,13 @@
 """
 委外加工 — 询价/报价 Controller
 """
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import Path, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+import io
 
 from common.aspect.db_seesion import DBSessionDependency
 from common.aspect.pre_auth import CurrentUserDependency, PreAuthDependency
@@ -14,9 +17,11 @@ from common.vo import DataResponseModel, PageResponseModel, ResponseBaseModel
 from module_entrust.entity.vo.entrust_vo import (
     InquiryCreate, InquirySend, InquiryQuery, QuoteSubmit,
     QuoteDraftSave, QuoteDecline,
+    SendContractRequest, BatchSendContractRequest,
 )
 from module_entrust.entity.do.entrust_do import EntrustInvitation, EntrustOutsourceRequest, EntrustSupplier
 from module_entrust.service.inquiry_service import InquiryService
+from module_entrust.service.contract_service import ContractService
 from utils.response_util import ResponseUtil
 from sqlalchemy import select
 
@@ -240,3 +245,138 @@ async def award_inquiry(
     if not result:
         return ResponseUtil.failure(msg='选标失败')
     return ResponseUtil.success(data=result.model_dump(), msg='选标成功，已生成委外工单')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 合同生成 & 邮件分发
+# ─────────────────────────────────────────────────────────────────────────────
+
+@inquiry_controller.post(
+    '/{inquiry_id}/send-contract',
+    summary='向指定加工方发送填充后的合同 DOCX',
+    response_model=DataResponseModel,
+)
+async def send_contract(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    current_user: Annotated[CurrentUserModel, CurrentUserDependency()],
+    inquiry_id: int = Path(..., description='询价单ID'),
+    data: SendContractRequest = None,
+):
+    """
+    从数据库读取询价单和加工方信息，自动填充 DOCX 合同模板，
+    发送至收件邮箱（留空则从供应商档案自动获取），并记录发送历史。
+    """
+    from module_entrust.entity.vo.entrust_vo import SendContractRequest as Req
+    req = data or Req(supplier_id=0)
+    result = await ContractService.send_contract(
+        db=query_db,
+        inquiry_id=inquiry_id,
+        supplier_id=req.supplier_id,
+        recipient_email=req.recipient_email,
+        extra_values=req.extra_values,
+        created_by=current_user.user.user_id if current_user.user else 0,
+    )
+    if not result['success']:
+        return ResponseUtil.failure(msg=result['message'])
+    return ResponseUtil.success(
+        data={
+            'smtp_message_id': result.get('smtp_message_id'),
+            'record_id': result.get('record_id'),
+            'missing_fields': result.get('missing_fields', []),
+        },
+        msg=result['message'],
+    )
+
+
+@inquiry_controller.post(
+    '/{inquiry_id}/send-contract/batch',
+    summary='批量向询价单所有受邀加工方发送合同 DOCX',
+    response_model=DataResponseModel,
+)
+async def batch_send_contract(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    current_user: Annotated[CurrentUserModel, CurrentUserDependency()],
+    inquiry_id: int = Path(..., description='询价单ID'),
+    data: BatchSendContractRequest = None,
+):
+    """
+    自动从供应商档案获取邮箱，批量发送合同。
+    可通过 email_map 覆盖部分供应商的收件地址。
+    """
+    from module_entrust.entity.vo.entrust_vo import BatchSendContractRequest as Req
+    req = data or Req()
+    int_email_map = {int(k): v for k, v in (req.email_map or {}).items()}
+    result = await ContractService.batch_send_contract(
+        db=query_db,
+        inquiry_id=inquiry_id,
+        email_map=int_email_map or None,
+        extra_values=req.extra_values,
+        created_by=current_user.user.user_id if current_user.user else 0,
+    )
+    return ResponseUtil.success(
+        data=result,
+        msg=f"批量发送完成：{result['success_count']}/{result['total']} 封成功",
+    )
+
+
+@inquiry_controller.get(
+    '/{inquiry_id}/contract/preview',
+    summary='预览合同 DOCX（下载文件，不发邮件）',
+)
+async def preview_contract(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    inquiry_id: int = Path(..., description='询价单ID'),
+    supplier_id: int = Query(..., description='加工方ID'),
+):
+    """生成填充后的合同 DOCX 文件流，用于前端预览/下载，不发送邮件。"""
+    inquiry = await query_db.scalar(
+        select(EntrustOutsourceRequest).where(EntrustOutsourceRequest.id == inquiry_id)
+    )
+    if not inquiry:
+        return ResponseUtil.failure(msg='询价单不存在')
+
+    supplier = await query_db.scalar(
+        select(EntrustSupplier).where(EntrustSupplier.id == supplier_id)
+    )
+    if not supplier:
+        return ResponseUtil.failure(msg='加工方不存在')
+
+    from module_entrust.service.contract_service import _get_party_a_config
+    party_a = await _get_party_a_config(query_db)
+    docx_bytes, filename = ContractService.generate_docx_only(inquiry, supplier, party_a)
+
+    from urllib.parse import quote
+    encoded_name = quote(filename, safe='')
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        headers={'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_name}"},
+    )
+
+
+@inquiry_controller.get(
+    '/{inquiry_id}/contract/records',
+    summary='获取询价单的合同发送历史',
+    response_model=DataResponseModel,
+)
+async def get_contract_records(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    inquiry_id: int = Path(..., description='询价单ID'),
+):
+    records = await ContractService.get_contract_records(query_db, inquiry_id)
+    return ResponseUtil.success(data=records)
+
+
+@inquiry_controller.get(
+    '/contract/records/{record_id}',
+    summary='获取单条合同发送记录详情',
+    response_model=DataResponseModel,
+)
+async def get_contract_record(
+    query_db: Annotated[AsyncSession, DBSessionDependency()],
+    record_id: int = Path(..., description='记录ID'),
+):
+    record = await ContractService.get_contract_record(query_db, record_id)
+    if not record:
+        return ResponseUtil.failure(msg='记录不存在')
+    return ResponseUtil.success(data=record)

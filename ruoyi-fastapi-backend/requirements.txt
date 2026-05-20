@@ -33,3 +33,4 @@ sqlglot[rs]==28.10.0
 textual==8.2.5
 user-agents==2.2.0
 .
+python-docx>=1.1.0

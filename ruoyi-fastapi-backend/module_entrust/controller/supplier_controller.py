@@ -62,12 +62,13 @@ async def get_current_supplier(
 async def get_supplier_list(
     query_db: Annotated[AsyncSession, DBSessionDependency()],
     name: str = Query(default=None, description='名称'),
+    supplier_type: str = Query(default=None, description='类型：processor/material/other'),
     category: str = Query(default=None, description='分类'),
     status: str = Query(default=None, description='状态'),
     page_num: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
 ):
-    query = SupplierQuery(name=name, category=category, status=status, page_num=page_num, page_size=page_size)
+    query = SupplierQuery(name=name, supplier_type=supplier_type, category=category, status=status, page_num=page_num, page_size=page_size)
     rows, total = await SupplierService.get_supplier_list(query_db, query)
     return ResponseUtil.success(rows=[r.model_dump() for r in rows], dict_content={'total': total})
 

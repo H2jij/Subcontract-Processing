@@ -23,14 +23,25 @@ class PageQuery(BaseModel):
 
 class SupplierCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description='供应商名称')
+    supplier_type: Optional[str] = Field(default='processor', description='类型：processor/material/other')
     category: Optional[str] = None
     province: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
+    legal_rep: Optional[str] = Field(default=None, description='法定代表人')
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    credit_code: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    bank_account_name: Optional[str] = None
     rating: Optional[float] = None
     base_price: Optional[float] = None
+    contract_amount: Optional[float] = None
+    contract_start: Optional[date] = None
+    contract_end: Optional[date] = None
+    signed_at: Optional[date] = None
     remark: Optional[str] = None
     link_username: Optional[str] = None
     link_password: Optional[str] = None
@@ -38,14 +49,25 @@ class SupplierCreate(BaseModel):
 
 class SupplierUpdate(BaseModel):
     name: Optional[str] = None
+    supplier_type: Optional[str] = None
     category: Optional[str] = None
     province: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
+    legal_rep: Optional[str] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    credit_code: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    bank_account_name: Optional[str] = None
     rating: Optional[float] = None
     base_price: Optional[float] = None
+    contract_amount: Optional[float] = None
+    contract_start: Optional[date] = None
+    contract_end: Optional[date] = None
+    signed_at: Optional[date] = None
     status: Optional[str] = None
     remark: Optional[str] = None
     link_username: Optional[str] = None
@@ -54,6 +76,47 @@ class SupplierUpdate(BaseModel):
 
 class SupplierQuery(PageQuery):
     name: Optional[str] = None
+    supplier_type: Optional[str] = Field(default=None, description='processor/material/other')
+    category: Optional[str] = None
+    status: Optional[str] = None
+
+
+class SupplierResponse(BaseModel):
+    id: int
+    name: str
+    supplier_type: Optional[str] = None
+    category: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
+    legal_rep: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    credit_code: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    bank_account_name: Optional[str] = None
+    rating: Optional[float] = None
+    base_price: Optional[float] = None
+    contract_amount: Optional[float] = None
+    contract_start: Optional[date] = None
+    contract_end: Optional[date] = None
+    signed_at: Optional[date] = None
+    status: Optional[str] = None
+    remark: Optional[str] = None
+    user_id: Optional[int] = None
+    link_username: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = {'from_attributes': True}
+
+
+class SupplierQuery(PageQuery):
+    name: Optional[str] = None
+    supplier_type: Optional[str] = Field(default=None, description='processor/material/other')
     category: Optional[str] = None
     status: Optional[str] = None
 
@@ -67,6 +130,8 @@ class SupplierResponse(BaseModel):
     address: Optional[str] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    credit_code: Optional[str] = None
     rating: Optional[float] = None
     base_price: Optional[float] = None
     status: Optional[str] = None
@@ -379,3 +444,36 @@ class ChatSessionVO(BaseModel):
     model_config = {'from_attributes': True, 'populate_by_name': True, 'alias_generator': lambda x: ''.join(
         word.capitalize() if i else word for i, word in enumerate(x.split('_'))
     )}
+
+
+# ============================================================================
+# 合同发送
+# ============================================================================
+
+class SendContractRequest(BaseModel):
+    supplier_id: int = Field(..., description='加工方ID')
+    recipient_email: Optional[str] = Field(default=None, description='收件邮箱（留空则从供应商档案自动获取）')
+    extra_values: Optional[dict[str, str]] = Field(default=None, description='额外占位符覆盖值')
+
+
+class BatchSendContractRequest(BaseModel):
+    email_map: Optional[dict[str, str]] = Field(
+        default=None, description='邮箱覆盖映射 {"supplier_id": "email"}，留空则全部从供应商档案获取'
+    )
+    extra_values: Optional[dict[str, str]] = Field(default=None, description='额外占位符覆盖值')
+
+
+class ContractRecordResponse(BaseModel):
+    id: int
+    inquiry_id: int
+    supplier_id: int
+    supplier_name: Optional[str] = None
+    recipient_email: str
+    status: str
+    smtp_message_id: Optional[str] = None
+    error_message: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {'from_attributes': True}

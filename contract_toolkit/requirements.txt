@@ -1,0 +1,12 @@
+# contract_toolkit 依赖
+# 安装：pip install -r requirements.txt
+
+python-docx>=1.1.0      # DOCX 读写
+python-dotenv>=1.0.0    # 从 .env 读取 SMTP 配置（可选）
+
+# PDF 转换（二选一，至少需要一个）
+# 方案 A：安装 LibreOffice（推荐，免费）
+#   Windows: winget install TheDocumentFoundation.LibreOffice
+#   Ubuntu:  sudo apt install libreoffice
+# 方案 B：docx2pdf（需要本机 Word，仅 Windows/macOS）
+# docx2pdf>=0.1.8

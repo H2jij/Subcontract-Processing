@@ -144,6 +144,28 @@ class TransportCryptoSettings(BaseSettings):
     )
 
 
+class SmtpSettings(BaseSettings):
+    """
+    SMTP 邮件配置
+    """
+    smtp_host: str = 'smtp.163.com'
+    smtp_port: int = 465
+    smtp_user: str = ''
+    smtp_password: str = ''
+    smtp_sender_name: str = '青岛瑞利杰金属有限公司'
+    smtp_debug: bool = False
+
+
+class CompanySettings(BaseSettings):
+    """
+    甲方（我方）固定信息，用于填充 DOCX 合同模板
+    """
+    company_legal_rep: str = ''       # 甲方法定代表人
+    company_contact: str = ''         # 甲方联系方式
+    company_credit_code: str = ''     # 甲方统一社会信用代码
+    company_pkg_guide_no: str = ''    # 包装指导书编号
+
+
 class GenSettings:
     """
     代码生成配置
@@ -280,6 +302,18 @@ class GetConfig:
         # 实例上传配置
         return UploadSettings()
 
+    def get_smtp_config(self) -> SmtpSettings:
+        """
+        获取 SMTP 邮件配置
+        """
+        return SmtpSettings()
+
+    def get_company_config(self) -> CompanySettings:
+        """
+        获取甲方公司固定信息配置
+        """
+        return CompanySettings()
+
     @staticmethod
     def parse_cli_args() -> None:
         """
@@ -336,3 +370,7 @@ TransportCryptoConfig = get_config.get_transport_crypto_config()
 GenConfig = get_config.get_gen_config()
 # 上传配置
 UploadConfig = get_config.get_upload_config()
+# SMTP 邮件配置
+SmtpConfig = get_config.get_smtp_config()
+# 甲方公司固定信息配置
+CompanyConfig = get_config.get_company_config()

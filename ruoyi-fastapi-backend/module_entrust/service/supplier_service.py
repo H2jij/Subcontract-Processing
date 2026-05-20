@@ -40,6 +40,8 @@ class SupplierService:
             stmt = stmt.where(EntrustSupplier.category == query.category)
         if query.status:
             stmt = stmt.where(EntrustSupplier.status == query.status)
+        if hasattr(query, 'supplier_type') and query.supplier_type:
+            stmt = stmt.where(EntrustSupplier.supplier_type == query.supplier_type)
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar()
@@ -98,13 +100,26 @@ class SupplierService:
 
         supplier = EntrustSupplier(
             name=data.name,
+            supplier_type=data.supplier_type or 'processor',
             category=data.category,
             province=data.province,
             city=data.city,
             address=data.address,
+            legal_rep=data.legal_rep,
             contact_name=data.contact_name,
             contact_phone=data.contact_phone,
+            contact_email=data.contact_email,
+            credit_code=data.credit_code,
+            bank_name=data.bank_name,
+            bank_account=data.bank_account,
+            bank_account_name=data.bank_account_name,
             rating=data.rating,
+            base_price=data.base_price,
+            contract_amount=data.contract_amount,
+            contract_start=data.contract_start,
+            contract_end=data.contract_end,
+            signed_at=data.signed_at,
+            status='active',
             remark=data.remark,
             created_by=user_id,
             user_id=link_user_id,
@@ -122,22 +137,24 @@ class SupplierService:
         if not supplier:
             return None
 
-        update_data = data.model_dump(exclude_unset=True)
+        # exclude_none=False 确保前端明确传入的空字符串也能清空字段
+        update_data = data.model_dump(exclude_unset=True, exclude_none=False)
 
-        # 处理关联账号
+        # 处理关联账号（单独逻辑）
         link_username = update_data.pop('link_username', None)
         link_password = update_data.pop('link_password', None)
 
         if link_username and not supplier.user_id:
-            # 新建关联账号
             pwd = link_password or DEFAULT_PASSWORD
             new_user_id = await SupplierService._create_link_user(
                 db, link_username, pwd, supplier.name
             )
             supplier.user_id = new_user_id
 
+        # 应用所有其他字段更新
         for k, v in update_data.items():
-            setattr(supplier, k, v)
+            if hasattr(supplier, k):
+                setattr(supplier, k, v)
 
         await db.flush()
         await db.commit()
