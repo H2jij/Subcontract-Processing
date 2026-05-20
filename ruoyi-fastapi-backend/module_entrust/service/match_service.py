@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from module_entrust.entity.do.entrust_do import (
     EntrustPart, EntrustProcessMethod,
     EntrustSupplier, EntrustSupplierCapability,
+    EntrustOutsourceRequest, EntrustInvitation,
 )
 
 # 本地优先排序参考地区（TODO: 后续从系统配置或项目地址取）
@@ -118,7 +119,29 @@ class MatchService:
                 'groups': {'A': [], 'B': [], 'C': []},
             }
 
-        # 3. 逐个加工方计算覆盖率并分组
+        # 3. 查询该项目已有询价邀请，按 supplier_id 汇总最新状态
+        inv_stmt = (
+            select(EntrustInvitation)
+            .join(EntrustOutsourceRequest, EntrustInvitation.request_id == EntrustOutsourceRequest.id)
+            .where(EntrustOutsourceRequest.project_id == project_id)
+            .order_by(EntrustInvitation.sent_at.desc())
+        )
+        all_invitations = (await db.execute(inv_stmt)).scalars().all()
+        # supplier_id -> 最新的 invitation status（优先：sent/draft_quoted > quoted > declined）
+        supplier_inquiry_status = {}
+        for inv in all_invitations:
+            sid = inv.supplier_id
+            if sid not in supplier_inquiry_status:
+                supplier_inquiry_status[sid] = inv.status
+            else:
+                # 如果已有状态是 sent/draft_quoted（待回复），优先保留
+                existing = supplier_inquiry_status[sid]
+                if existing in ('sent', 'draft_quoted'):
+                    pass  # keep
+                else:
+                    supplier_inquiry_status[sid] = inv.status
+
+        # 4. 逐个加工方计算覆盖率并分组
         total = len(required_names)
         groups = {'A': [], 'B': [], 'C': []}
 
@@ -150,6 +173,7 @@ class MatchService:
                 'total_required': total,
                 'matched_processes': matched,
                 'missing_processes': missing,
+                'inquiry_status': supplier_inquiry_status.get(s['id']),
             }
 
             if coverage_ratio >= 1.0:
@@ -159,7 +183,7 @@ class MatchService:
             elif coverage_ratio > 0:
                 groups['C'].append(entry)
 
-        # 4. 组内排序：有价格排上方，本地优先，价格升序/覆盖率降序
+        # 5. 组内排序：有价格排上方，本地优先，价格升序/覆盖率降序
         for group in groups.values():
             group.sort(key=lambda x: (
                 0 if x['has_price'] else 1,                                    # 有价格排上面

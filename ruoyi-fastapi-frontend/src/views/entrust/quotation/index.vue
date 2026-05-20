@@ -22,6 +22,12 @@
          <el-table-column label="询价日期" prop="inquiry_date" width="110" align="center" />
          <el-table-column label="截止日期" prop="deadline" width="110" align="center" />
          <el-table-column label="交付日期" prop="delivery_date" width="110" align="center" />
+         <el-table-column label="备料情况" align="center" width="110">
+            <template #default="scope">
+               <el-tag v-if="scope.row.material_preparation === 'supplier'" type="warning" size="small">加工方备料</el-tag>
+               <el-tag v-else type="success" size="small">我方备料</el-tag>
+            </template>
+         </el-table-column>
          <el-table-column label="状态" align="center" width="100">
             <template #default="scope">
                <el-tag v-if="scope.row.invitation_status === 'sent'" type="info">待填写</el-tag>
@@ -71,6 +77,10 @@
             <el-descriptions-item label="交付日期">{{ quoteFormInquiry.delivery_date || '-' }}</el-descriptions-item>
             <el-descriptions-item label="截止日期">{{ quoteFormInquiry.deadline || '-' }}</el-descriptions-item>
             <el-descriptions-item label="询价日期">{{ quoteFormInquiry.inquiry_date || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="备料情况">
+               <el-tag v-if="quoteFormInquiry.material_preparation === 'supplier'" type="warning" size="small">加工方备料</el-tag>
+               <el-tag v-else type="success" size="small">我方备料</el-tag>
+            </el-descriptions-item>
          </el-descriptions>
 
          <!-- 报价明细表（单价 + 总计，手动输入） -->
@@ -384,7 +394,7 @@ function exportInquiryXlsx(row) {
       ['我方（客户）', inv.customer_name || '', '', '订单号', inv.order_no || ''],
       ['联系人', inv.customer_contact || '', '', '电话', inv.customer_phone || ''],
       ['询价日期', inv.inquiry_date || '', '', '截止日期', inv.deadline || ''],
-      ['交付日期', inv.delivery_date || ''],
+      ['交付日期', inv.delivery_date || '', '', '备料情况', inv.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       ['加工方', inv.supplier_name || ''],
       ['加工方联系人', inv.supplier_contact || '', '', '电话', inv.supplier_phone || ''],
       [],
@@ -423,6 +433,7 @@ function exportQuotationXlsx(row) {
       ['客户（询价方）', inv.customer_name || '', '', '订单号', inv.order_no || ''],
       ['客户联系人', inv.customer_contact || '', '', '电话', inv.customer_phone || ''],
       ['询价日期', inv.inquiry_date || '', '', '交付日期', inv.delivery_date || ''],
+      ['备料情况', inv.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       ['报价时间', inv.quoted_at || ''],
       [],
       ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺', '单价(元)', '总计(元)'],

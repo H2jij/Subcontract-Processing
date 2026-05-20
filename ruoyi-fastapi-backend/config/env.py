@@ -109,7 +109,7 @@ class LogSettings(BaseSettings):
     loguru_level: str = 'INFO'
     loguru_stdout: bool = True
     log_file_enabled: bool = True
-    log_file_base_dir: str = 'logs'
+    log_file_base_dir: str = 'ruoyi-fastapi-backend/logs'
     loguru_rotation: str = '50MB'
     loguru_retention: str = '30 days'
     loguru_compression: str = 'zip'
