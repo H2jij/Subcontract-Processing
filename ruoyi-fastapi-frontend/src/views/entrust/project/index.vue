@@ -44,6 +44,14 @@
                   <el-tag v-else-if="scope.row.status === 'completed'" type="success">已完成</el-tag>
                </template>
             </el-table-column>
+            <el-table-column label="图纸状态" align="center" width="110">
+               <template #default="scope">
+                  <el-tag v-if="scope.row.drawing_status === 'splitting'" type="warning">拆图中</el-tag>
+                  <el-tag v-else-if="scope.row.drawing_status === 'done'" type="success">已就绪</el-tag>
+                  <el-tag v-else-if="scope.row.drawing_status === 'error'" type="danger">拆图失败</el-tag>
+                  <el-tag v-else type="info">未拆图</el-tag>
+               </template>
+            </el-table-column>
             <el-table-column label="创建时间" align="center" prop="created_at" width="180" />
             <el-table-column label="操作" align="center" width="300" class-name="small-padding fixed-width">
                <template #default="scope">
@@ -108,7 +116,7 @@
                <el-button type="primary" plain icon="Plus" @click="moldDialogVisible = true" class="mb8">添加模具套</el-button>
                <el-table :data="moldList" v-loading="moldLoading" border>
                   <el-table-column label="ID" prop="id" width="80" />
-                  <el-table-column label="模具套名称" prop="name" />
+                  <el-table-column label="模具号" prop="name" />
                   <el-table-column label="排序号" prop="sort_no" width="100" />
                   <el-table-column label="备注" prop="remark" :show-overflow-tooltip="true" />
                   <el-table-column label="操作" width="100" align="center">
@@ -119,8 +127,8 @@
                </el-table>
                <el-dialog title="添加模具套" v-model="moldDialogVisible" width="400px" append-to-body>
                   <el-form :model="moldForm" label-width="100px">
-                     <el-form-item label="名称">
-                        <el-input v-model="moldForm.name" placeholder="如：冲压模P4" />
+                     <el-form-item label="模具号">
+                        <el-input v-model="moldForm.name" placeholder="如 M250247-P6" />
                      </el-form-item>
                      <el-form-item label="排序号">
                         <el-input-number v-model="moldForm.sort_no" :min="0" />
@@ -189,7 +197,7 @@
                         </el-col>
                      </el-row>
                      <el-form-item label="所属模具">
-                        <el-select v-model="partForm.mold_id" placeholder="选择模具套（可选）" clearable style="width: 100%">
+                        <el-select v-model="partForm.mold_id" placeholder="选择模具号（可选）" clearable style="width: 100%">
                            <el-option v-for="m in moldList" :key="m.id" :label="m.name" :value="m.id" />
                         </el-select>
                      </el-form-item>
@@ -207,29 +215,6 @@
                      <el-button @click="partDialogVisible = false">取 消</el-button>
                   </template>
                </el-dialog>
-            </el-tab-pane>
-
-            <!-- 图纸 Tab -->
-            <el-tab-pane label="图纸/附件" name="attachments">
-               <el-upload
-                  :action="uploadUrl"
-                  :headers="uploadHeaders"
-                  :data="{ category: 'drawing', related_type: 'project' }"
-                  :on-success="handleUploadSuccess"
-                  :on-error="handleUploadError"
-                  :show-file-list="false"
-                  multiple
-                  class="mb8"
-               >
-                  <el-button type="primary" plain icon="Upload">上传图纸</el-button>
-               </el-upload>
-               <el-table :data="attachmentList" v-loading="attachmentLoading" border>
-                  <el-table-column label="文件名" prop="file_name" :show-overflow-tooltip="true" />
-                  <el-table-column label="大小" width="120" align="center">
-                     <template #default="scope">{{ formatFileSize(scope.row.file_size) }}</template>
-                  </el-table-column>
-                  <el-table-column label="上传时间" prop="created_at" width="180" align="center" />
-               </el-table>
             </el-tab-pane>
 
             <!-- 候选加工商 Tab -->
@@ -468,6 +453,7 @@
             <el-divider content-position="left">询价范围（自动导入零件信息）</el-divider>
             <div class="inquiry-parts-table">
                <div class="inquiry-table-header">
+                  <span class="col-mold-code">模具号</span>
                   <span class="col-part-no">零件编号</span>
                   <span class="col-part-name">零件名称</span>
                   <span class="col-material">材料</span>
@@ -476,6 +462,7 @@
                   <span class="col-process">所需工艺</span>
                </div>
                <div v-for="(item, idx) in inquiryForm.scope_json" :key="idx" class="inquiry-table-row">
+                  <span class="col-mold-code">{{ item.mold_code || '-' }}</span>
                   <span class="col-part-no">{{ item.part_no }}</span>
                   <span class="col-part-name">{{ item.part_name }}</span>
                   <span class="col-material">{{ item.material }}</span>
@@ -527,7 +514,7 @@
 import { listProject, getProject, addProject, updateProject, delProject,
          listMold, addMold, delMold,
          listPart, addPart, updatePart, delPart,
-         listProcessMethods, listAttachments,
+         listProcessMethods,
          submitProject, getMatchResult } from "@/api/entrust/project";
 import { addInquiry, sendInquiry } from "@/api/entrust/inquiry";
 import { getToken } from '@/utils/auth'
@@ -736,29 +723,6 @@ function handleDeletePart(row) {
    }).catch(() => {});
 }
 
-// 附件
-const attachmentList = ref([]);
-const attachmentLoading = ref(false);
-const uploadUrl = ref('');
-const uploadHeaders = ref({});
-
-function loadAttachments() {
-   attachmentLoading.value = true;
-   listAttachments(currentProject.value.id, 'project', currentProject.value.id).then(res => {
-      attachmentList.value = res.data || [];
-      attachmentLoading.value = false;
-   });
-}
-
-function handleUploadSuccess() {
-   proxy.$modal.msgSuccess("上传成功");
-   loadAttachments();
-}
-
-function handleUploadError() {
-   proxy.$modal.msgError("上传失败");
-}
-
 function formatFileSize(bytes) {
    if (!bytes) return '-';
    if (bytes < 1024) return bytes + ' B';
@@ -831,14 +795,19 @@ function openBatchInquiry() {
 function openInquiryForm() {
    batchInquiryOpen.value = false;
    // 自动导入零件信息作为询价范围
-   const scope = partList.value.map(p => ({
-      part_no: p.part_no || '',
-      part_name: p.part_name || '',
-      material: p.material || '',
-      qty: p.qty || 1,
-      spec: p.spec || '',
-      processes: (p.process_method_ids || []).map(id => getProcessName(id)),
-   }));
+   const scope = partList.value.map(p => {
+      // 通过 mold_id 找到模具号
+      const mold = moldList.value.find(m => m.id === p.mold_id);
+      return {
+         mold_code: mold ? mold.name : '',
+         part_no: p.part_no || '',
+         part_name: p.part_name || '',
+         material: p.material || '',
+         qty: p.qty || 1,
+         spec: p.spec || '',
+         processes: (p.process_method_ids || []).map(id => getProcessName(id)),
+      };
+   });
    // 截止日期默认为询价日期后3天
    const today = new Date();
    const deadlineDate = new Date(today);
@@ -894,18 +863,18 @@ function exportInquiryXlsx() {
       ['询价日期', inquiryForm.value.inquiry_date, '', '截止日期', inquiryForm.value.deadline],
       ['交付日期', inquiryForm.value.delivery_date, '', '备料情况', inquiryForm.value.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       [],
-      ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
+      ['模具号', '零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
    ];
    // 零件明细
    for (const item of (inquiryForm.value.scope_json || [])) {
       headerData.push([
-         item.part_no, item.part_name, item.material, item.qty, item.spec,
+         item.mold_code || '', item.part_no, item.part_name, item.material, item.qty, item.spec,
          (item.processes || []).join('、'),
       ]);
    }
    const ws = XLSX.utils.aoa_to_sheet(headerData);
-   ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 30 }];
-   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+   ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 30 }];
+   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
    XLSX.utils.book_append_sheet(wb, ws, '询价单');
    XLSX.writeFile(wb, '询价单_' + (inquiryForm.value.order_no || inquiryForm.value.title) + '.xlsx');
 }
@@ -925,13 +894,10 @@ function openDetail(row) {
    }
    loadMolds();
    loadParts();
-   loadAttachments();
    loadProcessMethods();
    if (row.status !== 'drafted') {
       loadMatchResult();
    }
-   uploadUrl.value = import.meta.env.VITE_APP_BASE_API + '/entrust/project/' + row.id + '/attachments';
-   uploadHeaders.value = { Authorization: 'Bearer ' + getToken() };
 }
 
 function closeDetail() {
@@ -953,7 +919,8 @@ getList();
    display: flex; border-top: 1px solid #ebeef5; font-size: 13px; padding: 8px 0;
 }
 .inquiry-table-row:nth-child(even) { background: #fafafa; }
-.col-part-no { width: 120px; text-align: center; }
+.col-mold-code { width: 120px; text-align: center; }
+.col-part-no { width: 100px; text-align: center; }
 .col-part-name { flex: 1; text-align: center; }
 .col-material { width: 100px; text-align: center; }
 .col-qty { width: 70px; text-align: center; }

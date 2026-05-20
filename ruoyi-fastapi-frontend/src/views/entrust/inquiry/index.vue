@@ -93,18 +93,40 @@
                <el-button link type="primary" icon="Trophy" @click="handleAward(scope.row)" v-if="!scope.row.has_order">选标</el-button>
                <el-button link type="primary" icon="Refresh" @click="refreshGroup(scope.row)">刷新</el-button>
                <el-button link type="primary" icon="Download" @click="exportInquiryXlsx(scope.row)">导出询价单</el-button>
+               <el-button link type="warning" icon="Picture" @click="openDrawingPanel(scope.row)">图纸</el-button>
             </template>
          </el-table-column>
       </el-table>
 
       <pagination v-show="total > 0" :total="total" v-model:page="queryParams.page_num" v-model:limit="queryParams.page_size" @pagination="getList" />
+
+      <!-- 图纸下载面板（按零件匹配） -->
+      <el-dialog title="图纸下载" v-model="drawingPanelOpen" width="700px" append-to-body>
+         <el-table :data="drawingPanelParts" border size="small" v-if="drawingPanelParts.length">
+            <el-table-column label="零件编号" prop="part_no" width="120" />
+            <el-table-column label="零件名称" prop="part_name" :show-overflow-tooltip="true" />
+            <el-table-column label="匹配图纸" width="100" align="center">
+               <template #default="scope">
+                  <span v-if="scope.row._matchedDrawing">{{ scope.row._matchedDrawing.part_code }}</span>
+                  <span v-else style="color:#999">-</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="图纸" width="80" align="center">
+               <template #default="scope">
+                  <el-button v-if="scope.row._matchedDrawing" link type="primary" icon="Download" @click="downloadDrawing(scope.row._matchedDrawing.id)">下载</el-button>
+                  <span v-else style="color:#999">无</span>
+               </template>
+            </el-table-column>
+         </el-table>
+         <div v-else style="text-align:center;color:#999;padding:20px">暂无零件数据</div>
+      </el-dialog>
    </div>
 </template>
 
 <script setup name="Inquiry">
 import { getGroupedInquiryList, awardInquiry } from "@/api/entrust/inquiry";
 import { useRouter } from 'vue-router'
-import { onActivated, onDeactivated } from 'vue'
+import { ref, onActivated, onDeactivated } from 'vue'
 import * as XLSX from 'xlsx-js-style'
 
 const { proxy } = getCurrentInstance();
@@ -232,6 +254,56 @@ function mergeScopeJson(inquiries) {
    return allParts
 }
 
+// ---- 图纸下载面板（按零件匹配） ----
+const drawingPanelOpen = ref(false)
+const drawingPanelParts = ref([])
+
+/**
+ * 前缀匹配：用零件编号去匹配图纸 part_code 前缀
+ * part_no='A08' 能匹配 part_code='A08-M250082-P2'
+ */
+function matchDrawingForPart(partNo, drawings) {
+   if (!partNo || !drawings || !drawings.length) return null
+   const upper = partNo.toUpperCase()
+   return drawings.find(d => (d.part_code || '').toUpperCase().startsWith(upper)) || null
+}
+
+function openDrawingPanel(row) {
+   const parts = mergeScopeJson(row.inquiries || [])
+   const drawings = row.project_drawings || []
+   drawingPanelParts.value = parts.map(p => ({
+      ...p,
+      _matchedDrawing: matchDrawingForPart(p.part_no, drawings),
+   }))
+   drawingPanelOpen.value = true
+}
+
+function downloadDrawing(drawingId) {
+   import('@/utils/auth').then(({ getToken }) => {
+      const baseURL = import.meta.env.VITE_APP_BASE_API
+      const token = getToken()
+      fetch(`${baseURL}/entrust/drawing/download/${drawingId}`, {
+         headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => {
+         if (!res.ok) throw new Error('下载失败')
+         const disposition = res.headers.get('Content-Disposition') || ''
+         const filename = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/)?.[1]
+            || disposition.match(/filename="?([^";\n]+)"?/)?.[1]
+            || 'drawing.dwg'
+         return res.blob().then(blob => ({ blob, filename: decodeURIComponent(filename) }))
+      }).then(({ blob, filename }) => {
+         const url = URL.createObjectURL(blob)
+         const a = document.createElement('a')
+         a.href = url
+         a.download = filename
+         a.click()
+         URL.revokeObjectURL(url)
+      }).catch(() => {
+         proxy.$modal.msgWarning('图纸下载失败')
+      })
+   })
+}
+
 // ---- 导出询价单 ----
 function exportInquiryXlsx(row) {
    const wb = XLSX.utils.book_new()
@@ -250,12 +322,12 @@ function exportInquiryXlsx(row) {
       ['询价日期', latest.inquiry_date || '', '', '截止日期', latest.deadline || ''],
       ['交付日期', latest.delivery_date || '', '', '备料情况', latest.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       [],
-      ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
+      ['模具号', '零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
    ]
    const headerRow = 6
    for (const item of allParts) {
       data.push([
-         item.part_no, item.part_name, item.material, item.qty, item.spec,
+         item.mold_code || '', item.part_no, item.part_name, item.material, item.qty, item.spec,
          (item.processes || []).join('、'),
       ])
    }
@@ -265,10 +337,10 @@ function exportInquiryXlsx(row) {
    data.push(['　　　2. 如有疑问请点击对话进行咨询'])
 
    const ws = XLSX.utils.aoa_to_sheet(data)
-   ws['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 8 }, { wch: 20 }, { wch: 30 }]
-   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }]
+   ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 8 }, { wch: 20 }, { wch: 30 }]
+   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }]
    ws['!rows'] = [{ hpt: 36 }]
-   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 6)
+   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 7)
    XLSX.utils.book_append_sheet(wb, ws, '询价单')
    XLSX.writeFile(wb, '询价单_' + (latest.order_no || row.project_name || '').substring(0, 30) + '.xlsx')
 }
@@ -294,30 +366,30 @@ function exportQuotationForSupplier(groupRow, supplier) {
       ['加工方', supplier.supplier_name || ''],
       ['报价时间', supplier.quoted_at ? supplier.quoted_at.replace('T', ' ').substring(0, 19) : ''],
       [],
-      ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺', '单价(元)', '总计(元)'],
+      ['模具号', '零件编号', '零件名称', '材料', '数量', '规格', '所需工艺', '单价(元)', '总计(元)'],
    ]
    const headerRow = 9
    for (const l of quoteLines) {
       const scopeItem = allParts.find(s => s.part_no === l.part_no) || {}
       data.push([
-         l.part_no, l.part_name, scopeItem.material || l.material || '', l.qty || 1,
+         scopeItem.mold_code || l.mold_code || '', l.part_no, l.part_name, scopeItem.material || l.material || '', l.qty || 1,
          scopeItem.spec || l.spec || '', (scopeItem.processes || []).join('、'),
          l.unit_price || 0, l.total_price || 0,
       ])
    }
    const dataEndRow = headerRow + quoteLines.length
    const lineTotal = quoteLines.reduce((s, l) => s + (l.total_price || 0), 0)
-   data.push(['', '', '', '', '', '', '合计：', lineTotal.toFixed(2)])
+   data.push(['', '', '', '', '', '', '', '合计：', lineTotal.toFixed(2)])
    data.push([])
    data.push(['说明：1. 单价为含税单价'])
    data.push(['　　　2. 总计为该零件总金额'])
 
    const ws = XLSX.utils.aoa_to_sheet(data)
-   ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 12 }]
-   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }]
+   ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 12 }]
+   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }]
    ws['!rows'] = [{ hpt: 36 }]
-   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 8)
-   for (let c = 0; c < 8; c++) {
+   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 9)
+   for (let c = 0; c < 9; c++) {
       const addr = XLSX.utils.encode_cell({ r: dataEndRow + 1, c })
       if (ws[addr]) ws[addr].s = TOTAL_STYLE
    }

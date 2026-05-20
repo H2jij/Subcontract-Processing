@@ -1,13 +1,12 @@
 """
 委外加工 — 项目管理 Controller
 """
-import os
-import uuid
+import asyncio
+import threading
 from datetime import datetime
-from pathlib import Path as FilePath
 from typing import Annotated
 
-from fastapi import Path, Query, Request, Response, UploadFile, File, Form
+from fastapi import Path, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,9 +25,79 @@ from module_entrust.service.project_service import ProjectService
 from module_entrust.service.match_service import MatchService
 from utils.response_util import ResponseUtil
 
-# 上传目录
-UPLOADS_DIR = FilePath(__file__).resolve().parent.parent.parent.parent / 'uploads' / 'drawings'
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+import logging as _logging
+_bg_logger = _logging.getLogger(__name__)
+
+
+async def _background_match_and_split(project_id: int):
+    """后台任务：先匹配供应商，再拆图（使用独立的 engine，不阻塞主事件循环）"""
+    from config.database import create_async_db_engine, create_async_session_local
+    engine = create_async_db_engine(echo=False)
+    session_local = create_async_session_local(engine)
+    try:
+        async with session_local() as db:
+            # 1. 匹配供应商
+            try:
+                _bg_logger.info(f'[后台] 项目 {project_id} 开始匹配供应商')
+                result = await MatchService.match_suppliers(db, project_id)
+                _bg_logger.info(f'[后台] 项目 {project_id} 匹配完成')
+            except Exception as e:
+                _bg_logger.error(f'[后台] 项目 {project_id} 匹配异常: {e}', exc_info=True)
+
+            # 2. 拆图
+            try:
+                _bg_logger.info(f'[后台] 项目 {project_id} 开始拆图')
+
+                proj = (await db.execute(
+                    select(EntrustProject).where(EntrustProject.id == project_id)
+                )).scalar_one_or_none()
+                if proj:
+                    proj.drawing_status = 'splitting'
+                    await db.commit()
+
+                from module_entrust.service.drawing_service import ensure_project_drawings
+                split_result = await ensure_project_drawings(db, project_id)
+                await db.commit()
+
+                proj = (await db.execute(
+                    select(EntrustProject).where(EntrustProject.id == project_id)
+                )).scalar_one_or_none()
+                if proj:
+                    proj.drawing_status = 'done'
+                    proj.drawing_message = str(split_result.get('details', ''))
+                    await db.commit()
+
+                _bg_logger.info(f'[后台] 项目 {project_id} 拆图完成: {split_result}')
+
+            except Exception as e:
+                _bg_logger.error(f'[后台] 项目 {project_id} 拆图异常: {e}', exc_info=True)
+                try:
+                    proj = (await db.execute(
+                        select(EntrustProject).where(EntrustProject.id == project_id)
+                    )).scalar_one_or_none()
+                    if proj:
+                        proj.drawing_status = 'error'
+                        proj.drawing_message = str(e)[:500]
+                        await db.commit()
+                except Exception:
+                    pass
+    finally:
+        await engine.dispose()
+
+
+def _run_background_in_thread(project_id: int):
+    """在独立线程中运行后台任务，使用自己的事件循环，不阻塞主事件循环"""
+    _bg_logger.info(f'[后台线程] 启动独立线程处理项目 {project_id}')
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(_background_match_and_split(project_id))
+        finally:
+            loop.close()
+        _bg_logger.info(f'[后台线程] 项目 {project_id} 处理完成')
+    except Exception as e:
+        _bg_logger.error(f'[后台线程] 项目 {project_id} 线程异常: {e}', exc_info=True)
 
 project_controller = APIRouterPro(
     prefix='/entrust/project',
@@ -96,15 +165,16 @@ async def submit_project(
     project.confirmed_at = datetime.now()
     await query_db.flush()
     await query_db.commit()
-    await query_db.refresh(project)
 
-    # 执行匹配
-    result = await MatchService.match_suppliers(query_db, project_id)
+    # 匹配 + 拆图在独立线程中执行，不阻塞主事件循环
+    t = threading.Thread(target=_run_background_in_thread, args=(project_id,), daemon=True)
+    t.start()
+    _bg_logger.info(f'[决策] 项目 {project_id} 已确认，后台线程已启动 (thread={t.name})')
+
     return ResponseUtil.success(data={
         'project_id': project_id,
-        'status': project.status,
-        'match_result': result,
-    }, msg='项目已确认，候选加工方已生成')
+        'status': 'confirmed',
+    }, msg='项目已确认，匹配和拆图后台进行中')
 
 
 @project_controller.post(
@@ -208,15 +278,29 @@ async def batch_create_inquiry(
     pm_rows = (await query_db.execute(pm_stmt)).scalars().all()
     pm_map = {r.id: r.name for r in pm_rows}
 
+    # 获取项目模具映射 (mold_id → mold_name)
+    molds_stmt = select(EntrustMold).where(EntrustMold.project_id == project_id)
+    molds = (await query_db.execute(molds_stmt)).scalars().all()
+    mold_map = {m.id: m for m in molds}
+    from module_entrust.service.drawing_service import normalize_mold_code
+
     # 构建 scope_json
     scope_items = []
     for p in parts:
+        # 查零件关联的模具号
+        mold_code = ''
+        if p.mold_id and p.mold_id in mold_map:
+            mold_code = normalize_mold_code(mold_map[p.mold_id].name or '')
+        elif molds:
+            mold_code = normalize_mold_code(molds[0].name or '')
+
         item = {
             'part_id': p.id,
             'part_no': p.part_no,
             'part_name': p.part_name,
             'qty': p.qty,
             'material': p.material,
+            'mold_code': mold_code,
         }
         if p.process_method_ids:
             item['processes'] = [pm_map.get(pid, str(pid)) for pid in p.process_method_ids]
@@ -430,53 +514,3 @@ async def delete_mold(
     await query_db.flush()
     await query_db.commit()
     return ResponseUtil.success(msg='删除成功')
-
-
-# --- 附件/图纸上传 ---
-
-@project_controller.post(
-    '/{project_id}/attachments',
-    summary='上传附件/图纸',
-    response_model=DataResponseModel,
-)
-async def upload_attachment(
-    query_db: Annotated[AsyncSession, DBSessionDependency()],
-    current_user: Annotated[CurrentUserModel, CurrentUserDependency()],
-    project_id: int = Path(..., description='项目ID'),
-    file: UploadFile = File(...),
-    category: str = Form(default='drawing'),
-    related_type: str = Form(default='project'),
-    related_id: int = Form(default=None),
-):
-    # 保存文件
-    ext = os.path.splitext(file.filename)[1] if file.filename else ''
-    filename = f'{uuid.uuid4().hex}{ext}'
-    file_path = UPLOADS_DIR / filename
-    content = await file.read()
-    with open(file_path, 'wb') as f:
-        f.write(content)
-
-    rid = related_id or project_id
-    result = await ProjectService.add_attachment(
-        query_db, related_type=related_type, related_id=rid,
-        file_name=file.filename, file_path=str(file_path),
-        file_size=len(content), mime_type=file.content_type,
-        category=category, uploaded_by=current_user.user.user_id if current_user.user else 0,
-    )
-    return ResponseUtil.success(data=result.model_dump(), msg='上传成功')
-
-
-@project_controller.get(
-    '/{project_id}/attachments',
-    summary='获取项目附件列表',
-    response_model=DataResponseModel,
-)
-async def get_attachments(
-    query_db: Annotated[AsyncSession, DBSessionDependency()],
-    project_id: int = Path(..., description='项目ID'),
-    related_type: str = Query(default='project'),
-    related_id: int = Query(default=None),
-):
-    rid = related_id or project_id
-    result = await ProjectService.get_attachments(query_db, related_type, rid)
-    return ResponseUtil.success(data=[r.model_dump() for r in result])

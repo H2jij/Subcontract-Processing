@@ -86,6 +86,7 @@
          <!-- 报价明细表（单价 + 总计，手动输入） -->
          <div class="quote-table-wrap">
             <div class="qt-header">
+               <span class="qc-mold-code">模具号</span>
                <span class="qc-part-no">零件编号</span>
                <span class="qc-part-name">零件名称</span>
                <span class="qc-material">材料</span>
@@ -94,8 +95,10 @@
                <span class="qc-process">所需工艺</span>
                <span class="qc-price">单价(元)</span>
                <span class="qc-total">总计(元)</span>
+               <span class="qc-drawing">图纸</span>
             </div>
             <div v-for="(item, idx) in quoteLines" :key="idx" class="qt-row">
+               <span class="qc-mold-code">{{ item.mold_code || '-' }}</span>
                <span class="qc-part-no">{{ item.part_no }}</span>
                <span class="qc-part-name">{{ item.part_name }}</span>
                <span class="qc-material">{{ item.material }}</span>
@@ -110,9 +113,14 @@
                <span class="qc-total">
                   <el-input-number v-model="item.total_price" :min="0" :precision="2" size="small" controls-position="right" style="width:100%" placeholder="总计" />
                </span>
+               <span class="qc-drawing">
+                  <el-button v-if="item._matchedDrawing" link type="primary" icon="Download" @click="downloadDrawing(item._matchedDrawing.id)">下载</el-button>
+                  <span v-else style="color:#999;font-size:12px">无</span>
+               </span>
             </div>
             <!-- 合计行 -->
             <div class="qt-row qt-total-row">
+               <span class="qc-mold-code"></span>
                <span class="qc-part-no"></span>
                <span class="qc-part-name"></span>
                <span class="qc-material"></span>
@@ -121,6 +129,7 @@
                <span class="qc-process" style="font-weight:bold;text-align:right;padding-right:8px">合计：</span>
                <span class="qc-price" style="font-weight:bold">{{ quoteLines.reduce((s, l) => s + (l.unit_price || 0), 0).toFixed(2) }}</span>
                <span class="qc-total" style="font-weight:bold;font-size:15px;color:#F56C6C">{{ grandTotal }}</span>
+               <span class="qc-drawing"></span>
             </div>
          </div>
          <div class="inquiry-note">
@@ -211,12 +220,40 @@ function goChat(row) {
    router.push({ path: '/entrust/chat', query: { our_user_id: row.created_by } })
 }
 
+// ---- 下载图纸 ----
+function downloadDrawing(drawingId) {
+   import('@/utils/auth').then(({ getToken }) => {
+      const baseURL = import.meta.env.VITE_APP_BASE_API
+      const token = getToken()
+      fetch(`${baseURL}/entrust/drawing/download/${drawingId}`, {
+         headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => {
+         if (!res.ok) throw new Error('下载失败')
+         const disposition = res.headers.get('Content-Disposition') || ''
+         const filename = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/)?.[1]
+            || disposition.match(/filename="?([^";\n]+)"?/)?.[1]
+            || 'drawing.dwg'
+         return res.blob().then(blob => ({ blob, filename: decodeURIComponent(filename) }))
+      }).then(({ blob, filename }) => {
+         const url = URL.createObjectURL(blob)
+         const a = document.createElement('a')
+         a.href = url
+         a.download = filename
+         a.click()
+         URL.revokeObjectURL(url)
+      }).catch(() => {
+         proxy.$modal.msgWarning('图纸下载失败')
+      })
+   })
+}
+
 // ---- 填写报价 ----
 const quoteFormOpen = ref(false)
 const quoteFormInquiry = ref({})
 const quoteLines = ref([])
 const quoteNote = ref('')
 const currentInvitationId = ref(null)
+const quoteFormDrawings = ref([])
 
 const grandTotal = computed(() => {
    return quoteLines.value.reduce((sum, l) => {
@@ -227,14 +264,22 @@ const grandTotal = computed(() => {
 function openQuoteForm(row) {
    currentInvitationId.value = row.invitation_id
    quoteFormInquiry.value = row
+   quoteFormDrawings.value = row.project_drawings || []
+   const drawings = row.project_drawings || []
    const scope = row.scope_json || []
+   // 前缀匹配：为每个零件找到对应图纸
+   const matchDrawing = (partNo) => {
+      if (!partNo || !drawings.length) return null
+      const upper = partNo.toUpperCase()
+      return drawings.find(d => (d.part_code || '').toUpperCase().startsWith(upper)) || null
+   }
    if (row.draft_quote_json && row.draft_quote_json.length) {
       quoteLines.value = scope.map(s => {
          const draft = row.draft_quote_json.find(d => d.part_no === s.part_no)
-         return { ...s, unit_price: draft?.unit_price || 0, total_price: draft?.total_price || 0 }
+         return { ...s, unit_price: draft?.unit_price || 0, total_price: draft?.total_price || 0, _matchedDrawing: matchDrawing(s.part_no) }
       })
    } else {
-      quoteLines.value = scope.map(s => ({ ...s, unit_price: 0, total_price: 0 }))
+      quoteLines.value = scope.map(s => ({ ...s, unit_price: 0, total_price: 0, _matchedDrawing: matchDrawing(s.part_no) }))
    }
    quoteNote.value = ''
    quoteFormOpen.value = true
@@ -398,13 +443,13 @@ function exportInquiryXlsx(row) {
       ['加工方', inv.supplier_name || ''],
       ['加工方联系人', inv.supplier_contact || '', '', '电话', inv.supplier_phone || ''],
       [],
-      ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
+      ['模具号', '零件编号', '零件名称', '材料', '数量', '规格', '所需工艺'],
    ]
    const headerRow = 9
    const parts = inv.scope_json || []
    for (const item of parts) {
       data.push([
-         item.part_no, item.part_name, item.material, item.qty, item.spec,
+         item.mold_code || '', item.part_no, item.part_name, item.material, item.qty, item.spec,
          (item.processes || []).join('、'),
       ])
    }
@@ -413,10 +458,10 @@ function exportInquiryXlsx(row) {
    data.push(['说明：1. 请在「单价(元)」列填写含税单价'])
    data.push(['　　　2. 如有疑问请联系我方进行咨询'])
    const ws = XLSX.utils.aoa_to_sheet(data)
-   ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 30 }]
-   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }]
+   ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 30 }]
+   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }]
    ws['!rows'] = [{ hpt: 36 }]
-   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 6)
+   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 7)
    XLSX.utils.book_append_sheet(wb, ws, inv.title?.substring(0, 28) || '询价单')
    XLSX.writeFile(wb, '询价单_' + (inv.title || '').substring(0, 20) + '_' + new Date().toISOString().slice(0, 10) + '.xlsx')
 }
@@ -436,30 +481,30 @@ function exportQuotationXlsx(row) {
       ['备料情况', inv.material_preparation === 'supplier' ? '加工方备料' : '我方备料'],
       ['报价时间', inv.quoted_at || ''],
       [],
-      ['零件编号', '零件名称', '材料', '数量', '规格', '所需工艺', '单价(元)', '总计(元)'],
+      ['模具号', '零件编号', '零件名称', '材料', '数量', '规格', '所需工艺', '单价(元)', '总计(元)'],
    ]
    const headerRow = 9
    for (const l of draftLines) {
       const scopeItem = scopeJson.find(s => s.part_no === l.part_no) || {}
       data.push([
-         l.part_no, l.part_name, scopeItem.material || '', l.qty || 1,
+         scopeItem.mold_code || l.mold_code || '', l.part_no, l.part_name, scopeItem.material || '', l.qty || 1,
          scopeItem.spec || '', (scopeItem.processes || []).join('、'),
          l.unit_price || 0, l.total_price || 0,
       ])
    }
    const dataEndRow = headerRow + draftLines.length
    const grandTotal = draftLines.reduce((s, l) => s + (l.total_price || 0), 0)
-   data.push(['', '', '', '', '', '', '合计：', grandTotal.toFixed(2)])
+   data.push(['', '', '', '', '', '', '', '合计：', grandTotal.toFixed(2)])
    data.push([])
    data.push(['说明：1. 单价为含税单价'])
    data.push(['　　　2. 总计为该零件总金额'])
    const ws = XLSX.utils.aoa_to_sheet(data)
-   ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 12 }]
-   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }]
+   ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 12 }]
+   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }]
    ws['!rows'] = [{ hpt: 36 }]
-   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 8)
+   applyStyle(ws, headerRow, headerRow + 1, dataEndRow, 9)
    // 合计行样式
-   for (let c = 0; c < 8; c++) {
+   for (let c = 0; c < 9; c++) {
       const addr = XLSX.utils.encode_cell({ r: dataEndRow + 1, c })
       if (ws[addr]) ws[addr].s = TOTAL_STYLE
    }
@@ -487,7 +532,8 @@ onDeactivated(() => { stopPolling() })
 }
 .qt-row:nth-child(even) { background: #fafafa; }
 .qt-total-row { background: #f5f7fa; font-size: 13px; }
-.qc-part-no { width: 100px; text-align: center; }
+.qc-mold-code { width: 110px; text-align: center; }
+.qc-part-no { width: 90px; text-align: center; }
 .qc-part-name { width: 100px; text-align: center; }
 .qc-material { width: 80px; text-align: center; }
 .qc-qty { width: 60px; text-align: center; }
@@ -495,6 +541,7 @@ onDeactivated(() => { stopPolling() })
 .qc-process { min-width: 120px; text-align: center; }
 .qc-price { width: 130px; text-align: center; }
 .qc-total { width: 130px; text-align: center; }
+.qc-drawing { width: 70px; text-align: center; }
 
 .inquiry-note { font-size: 12px; color: #909399; line-height: 1.8; padding: 4px 0 8px; }
 </style>

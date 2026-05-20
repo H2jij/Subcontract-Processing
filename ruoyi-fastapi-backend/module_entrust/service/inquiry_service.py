@@ -1,21 +1,25 @@
 """
 委外加工 — 询价/报价 Service
 """
+import logging
 from datetime import datetime
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from module_entrust.entity.do.entrust_do import (
     EntrustOutsourceRequest, EntrustInvitation, EntrustQuotation,
-    EntrustOutsourceOrder, EntrustSupplier, EntrustProject,
+    EntrustOutsourceOrder, EntrustSupplier, EntrustProject, EntrustDrawing,
 )
 from module_entrust.entity.vo.entrust_vo import (
     InquiryCreate, InquirySend, InquiryQuery, InquiryResponse,
     QuoteSubmit, QuoteResponse, QuoteDraftSave, QuoteDecline,
     OutsourceOrderResponse, OrderStatusTransition,
     InquiryGroupedResponse, GroupedSupplierQuote, GroupedInquiryBrief,
+    DrawingBrief,
 )
 
 
@@ -90,6 +94,9 @@ class InquiryService:
         if not inquiry:
             return None
 
+        # ---- 发送前自动查找/拆图，将 drawing_id 写入 scope_json ----
+        await InquiryService._ensure_drawings(db, inquiry)
+
         # 查询该供应商在该项目中已有的待回复邀请
         project_id = inquiry.project_id
         existing_stmt = (
@@ -124,6 +131,45 @@ class InquiryService:
         await db.flush()
         await db.commit()
         return {'skipped': skipped}
+
+    @staticmethod
+    async def _ensure_drawings(db: AsyncSession, inquiry):
+        """
+        发送询价前，遍历 scope_json 中每个零件，
+        用 mold_code + part_no 查图纸库 → 没有则去D盘找原图拆图 → drawing_id 写回 scope_json
+        """
+        from module_entrust.service.drawing_service import lookup_drawings
+
+        scope_json = inquiry.scope_json
+        if not scope_json or not isinstance(scope_json, list):
+            return
+
+        updated = False
+        for item in scope_json:
+            mold_code = item.get('mold_code', '')
+            part_no = item.get('part_no', '')
+            if not mold_code or not part_no:
+                continue
+
+            # 已有 drawing_id 则跳过
+            if item.get('drawing_id'):
+                continue
+
+            try:
+                results = await lookup_drawings(db, mold_code, part_no)
+                if results and results[0].get('found'):
+                    item['drawing_id'] = results[0]['drawing_id']
+                    updated = True
+                    logger.info(f'[询价图纸] {mold_code}/{part_no} → drawing_id={results[0]["drawing_id"]}')
+                else:
+                    msg = results[0].get('message', '未找到') if results else '未找到'
+                    logger.warning(f'[询价图纸] {mold_code}/{part_no} 未找到: {msg}')
+            except Exception as e:
+                logger.error(f'[询价图纸] {mold_code}/{part_no} 查找异常: {e}')
+
+        if updated:
+            inquiry.scope_json = list(scope_json)  # 触发 SQLAlchemy 检测 JSON 变更
+            await db.flush()
 
     @staticmethod
     async def get_invitations(db: AsyncSession, inquiry_id: int):
@@ -276,6 +322,42 @@ class InquiryService:
     LOCAL_CITY = '青岛'
 
     @staticmethod
+    async def _query_project_drawings(db: AsyncSession, project_id: int) -> list[DrawingBrief]:
+        """查询项目所有可用的拆图，返回 DrawingBrief 列表"""
+        from module_entrust.entity.do.entrust_do import EntrustMold
+        from module_entrust.service.drawing_service import normalize_mold_code
+
+        # 查项目的模具号
+        molds = (await db.execute(
+            select(EntrustMold).where(EntrustMold.project_id == project_id)
+        )).scalars().all()
+        mold_codes = list({normalize_mold_code(m.name or '') for m in molds if m.name})
+
+        if not mold_codes:
+            return []
+
+        # 查所有可用图纸
+        drawings = (await db.execute(
+            select(EntrustDrawing).where(
+                EntrustDrawing.mold_code.in_(mold_codes),
+                EntrustDrawing.is_latest == True,
+                EntrustDrawing.status == 'available',
+            ).order_by(EntrustDrawing.mold_code, EntrustDrawing.part_code)
+        )).scalars().all()
+
+        return [
+            DrawingBrief(
+                id=d.id,
+                mold_code=d.mold_code,
+                part_code=d.part_code,
+                file_name=d.file_name,
+                file_size_kb=d.file_size_kb,
+                download_url=f'/entrust/drawing/download/{d.id}',
+            )
+            for d in drawings
+        ]
+
+    @staticmethod
     def _location_rank(province: str, city: str) -> int:
         if city == InquiryService.LOCAL_CITY and province == InquiryService.LOCAL_PROVINCE:
             return 0
@@ -407,6 +489,9 @@ class InquiryService:
             )).scalar()
             has_order = order_check is not None
 
+            # 查询项目图纸
+            project_drawings = await InquiryService._query_project_drawings(db, project_id)
+
             results.append(InquiryGroupedResponse(
                 project_id=project_id,
                 project_name=project.name,
@@ -418,6 +503,7 @@ class InquiryService:
                 suppliers=supplier_quotes,
                 inquiries=inquiry_briefs,
                 has_order=has_order,
+                project_drawings=project_drawings,
             ))
 
         return results, total

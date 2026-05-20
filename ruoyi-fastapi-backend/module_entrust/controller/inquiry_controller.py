@@ -56,11 +56,20 @@ async def get_my_invitations(
     inv_stmt = inv_stmt.order_by(EntrustInvitation.sent_at.desc())
     invitations = (await query_db.execute(inv_stmt)).scalars().all()
 
+    # 按项目缓存图纸列表，避免重复查询
+    _drawing_cache: dict[int, list] = {}
+
     result = []
     for inv in invitations:
         req_stmt = select(EntrustOutsourceRequest).where(EntrustOutsourceRequest.id == inv.request_id)
         req = (await query_db.execute(req_stmt)).scalar_one_or_none()
         if req:
+            project_id = req.project_id
+            # 查询项目图纸（带缓存）
+            if project_id not in _drawing_cache:
+                _drawing_cache[project_id] = await InquiryService._query_project_drawings(query_db, project_id)
+            project_drawings = [d.model_dump() for d in _drawing_cache[project_id]]
+
             result.append({
                 'invitation_id': inv.id,
                 'inquiry_id': req.id,
@@ -86,6 +95,8 @@ async def get_my_invitations(
                 'supplier_name': supplier.name,
                 'supplier_contact': supplier.contact_name,
                 'supplier_phone': supplier.contact_phone,
+                # 项目图纸
+                'project_drawings': project_drawings,
             })
     return ResponseUtil.success(data=result)
 
@@ -133,7 +144,58 @@ async def get_inquiry_detail(
     result = await InquiryService.get_inquiry_detail(query_db, inquiry_id)
     if not result:
         return ResponseUtil.failure(msg='询价单不存在')
-    return ResponseUtil.success(data=result.model_dump())
+
+    data = result.model_dump()
+
+    # 查询项目图纸拆图状态
+    project_id = result.project_id
+    from module_entrust.entity.do.entrust_do import EntrustProject, EntrustDrawing, EntrustMold
+    from sqlalchemy import func as sa_func
+
+    proj = (await query_db.execute(
+        select(EntrustProject).where(EntrustProject.id == project_id)
+    )).scalar_one_or_none()
+    drawing_status = proj.drawing_status if proj else 'none'
+    data['drawing_status'] = drawing_status
+
+    # 给 scope_json 中每个零件追加图纸信息
+    scope_json = data.get('scope_json') or []
+    if scope_json and drawing_status == 'done':
+        # 查项目下所有模具号
+        molds = (await query_db.execute(
+            select(EntrustMold).where(EntrustMold.project_id == project_id)
+        )).scalars().all()
+        from module_entrust.service.drawing_service import normalize_mold_code
+        mold_codes = list({normalize_mold_code(m.name or '') for m in molds if m.name})
+
+        for item in scope_json:
+            part_no = item.get('part_no', '')
+            drawing_info = {'status': 'not_found', 'download_url': None}
+
+            for mc in mold_codes:
+                # 前缀匹配：part_code 以 part_no 开头即匹配
+                row = (await query_db.execute(
+                    select(EntrustDrawing).where(
+                        EntrustDrawing.mold_code == mc,
+                        EntrustDrawing.part_code.like(f'{part_no}%'),
+                        EntrustDrawing.is_latest == True,
+                        EntrustDrawing.status == 'available',
+                    ).limit(1)
+                )).scalar_one_or_none()
+                if row:
+                    drawing_info = {
+                        'status': 'available',
+                        'download_url': f'/entrust/drawing/download/{row.id}',
+                        'file_name': row.file_name,
+                    }
+                    break
+
+            item['drawing'] = drawing_info
+    elif scope_json:
+        for item in scope_json:
+            item['drawing'] = {'status': 'processing' if drawing_status == 'splitting' else 'not_found', 'download_url': None}
+
+    return ResponseUtil.success(data=data)
 
 
 @inquiry_controller.delete(

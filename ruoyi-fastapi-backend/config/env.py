@@ -117,6 +117,10 @@ class LogSettings(BaseSettings):
     log_service_name: str = 'ruoyi-fastapi-backend'
     log_worker_id: str = 'auto'
 
+    # CAD 图纸配置
+    cad_search_root: str = 'D:\\'
+    oda_file_converter_path: str = 'D:\\ODAFileConverter_title 21.5.0\\ODAFileConverter.exe'
+
 
 class TransportCryptoSettings(BaseSettings):
     """
