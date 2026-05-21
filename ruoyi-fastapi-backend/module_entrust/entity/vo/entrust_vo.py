@@ -188,6 +188,8 @@ class ProjectResponse(BaseModel):
     confirmed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    drawing_status: Optional[str] = None
+    drawing_message: Optional[str] = None
 
     model_config = {'from_attributes': True}
 
@@ -451,6 +453,16 @@ class GroupedInquiryBrief(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class DrawingBrief(BaseModel):
+    """图纸简要信息（用于询价/报价页面展示下载链接）"""
+    id: int
+    mold_code: str
+    part_code: str
+    file_name: str
+    file_size_kb: Optional[int] = None
+    download_url: str
+
+
 class InquiryGroupedResponse(BaseModel):
     """按项目分组的询价汇总"""
     project_id: int
@@ -463,6 +475,7 @@ class InquiryGroupedResponse(BaseModel):
     suppliers: list[GroupedSupplierQuote] = Field(default_factory=list)
     inquiries: list[GroupedInquiryBrief] = Field(default_factory=list)
     has_order: bool = False
+    project_drawings: list[DrawingBrief] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -537,3 +550,61 @@ class ContractRecordResponse(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = {'from_attributes': True}
+
+
+# ============================================================================
+# 图纸相关
+# ============================================================================
+
+class DrawingResponse(BaseModel):
+    """图纸响应"""
+    id: int
+    mold_code: str
+    part_code: str
+    file_name: str
+    file_path: str
+    file_size_kb: Optional[int] = None
+    version: int = 1
+    is_latest: bool = True
+    source_type: Optional[str] = 'auto_split'
+    split_at: Optional[datetime] = None
+    status: Optional[str] = 'available'
+    remark: Optional[str] = None
+    download_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {'from_attributes': True, 'populate_by_name': True, 'alias_generator': lambda x: ''.join(
+        word.capitalize() if i else word for i, word in enumerate(x.split('_'))
+    )}
+
+
+class DrawingLookupRequest(BaseModel):
+    """批量查找图纸请求"""
+    mold_code: str = Field(..., description='模具编号')
+    part_codes: str = Field(..., description='零件编号列表，逗号分隔')
+
+
+class DrawingLookupItem(BaseModel):
+    """单个零件的图纸查找结果"""
+    part_code: str
+    found: bool = False
+    source: Optional[str] = None
+    download_url: Optional[str] = None
+    file_path: Optional[str] = None
+    message: Optional[str] = None
+
+
+class DrawingSplitRequest(BaseModel):
+    """手动拆图请求"""
+    mold_code: str = Field(..., description='模具编号')
+    part_codes: str = Field(..., description='要拆的零件编号，逗号分隔')
+
+
+class DrawingPreviewResponse(BaseModel):
+    """原图预览响应"""
+    success: bool = False
+    mold_code: Optional[str] = None
+    source_dwg: Optional[str] = None
+    sub_drawings: Optional[list] = None
+    total: Optional[int] = None
+    message: Optional[str] = None

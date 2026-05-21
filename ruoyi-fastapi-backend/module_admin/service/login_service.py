@@ -207,7 +207,8 @@ class LoginService:
         #     raise AuthException(data="", message="用户token不合法")
         try:
             if token.startswith('Bearer'):
-                token = token.split(' ')[1]
+                parts = token.split(' ', 1)
+                token = parts[1] if len(parts) > 1 else ''
             payload = jwt.decode(token, JwtConfig.jwt_secret_key, algorithms=[JwtConfig.jwt_algorithm])
             user_id: str = payload.get('user_id')
             session_id: str = payload.get('session_id')

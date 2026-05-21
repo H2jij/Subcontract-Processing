@@ -110,30 +110,12 @@ export function listProcessMethods() {
   })
 }
 
-// 上传附件/图纸
-export function uploadAttachment(projectId, formData) {
-  return request({
-    url: '/entrust/project/' + projectId + '/attachments',
-    method: 'post',
-    data: formData,
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
-}
-
-// 获取附件列表
-export function listAttachments(projectId, relatedType, relatedId) {
-  return request({
-    url: '/entrust/project/' + projectId + '/attachments',
-    method: 'get',
-    params: { related_type: relatedType, related_id: relatedId }
-  })
-}
-
-// 提交项目（待审批）
+// 提交项目（决策）
 export function submitProject(projectId) {
   return request({
     url: '/entrust/project/' + projectId + '/submit',
-    method: 'post'
+    method: 'post',
+    timeout: 60000
   })
 }
 

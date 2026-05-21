@@ -71,6 +71,8 @@ class EntrustProject(Base):
     confirmed_at = Column(DateTime, comment='确认时间')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment='更新时间')
+    drawing_status = Column(String(32), default='none', comment='拆图状态：none/splitting/done/error')
+    drawing_message = Column(Text, default=None, comment='拆图结果信息')
 
 
 class EntrustMold(Base):
@@ -276,6 +278,27 @@ class EntrustAttachment(Base):
     category = Column(String(64), comment='分类：drawing/document/photo')
     uploaded_by = Column(BigInteger, comment='上传人')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+
+
+class EntrustDrawing(Base):
+    """图纸表（拆分后的零件子图）"""
+    __tablename__ = 'entrust_drawings'
+    __table_args__ = {'comment': '图纸表（拆分后的零件子图，支持多版本）'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')
+    mold_code = Column(String(64), nullable=False, comment='模具编号 如 M250247-P6')
+    part_code = Column(String(64), nullable=False, comment='零件编号 如 DIE-10, B03')
+    file_name = Column(String(255), nullable=False, comment='文件名 如 DIE-10_v2.dwg')
+    file_path = Column(String(512), nullable=False, comment='项目内相对路径')
+    file_size_kb = Column(Integer, comment='文件大小(KB)')
+    version = Column(Integer, nullable=False, default=1, comment='版本号')
+    is_latest = Column(Boolean, nullable=False, default=True, comment='是否最新版')
+    source_type = Column(String(32), default='auto_split', comment='来源：auto_split/manual')
+    split_at = Column(DateTime, comment='拆分/上传时间')
+    status = Column(String(32), default='available', comment='状态：available/unavailable')
+    remark = Column(Text, comment='备注')
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment='更新时间')
 
 
 class EntrustChatSession(Base):
