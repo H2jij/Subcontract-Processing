@@ -317,13 +317,18 @@ class ContractService:
             company=company_name,
         )
 
-        # 7. 发送
-        send_result = sender.send(
-            to=email,
-            subject=f"【请确认】年度采购框架合同 — {inquiry.title}",
-            html=html,
-            attachment_bytes=docx_bytes,
-            attachment_name=attachment_name,
+        # 7. 发送（同步 SMTP 操作放到线程池避免阻塞事件循环）
+        import asyncio
+        loop = asyncio.get_event_loop()
+        send_result = await loop.run_in_executor(
+            None,
+            lambda: sender.send(
+                to=email,
+                subject=f"【请确认】年度采购框架合同 — {inquiry.title}",
+                html=html,
+                attachment_bytes=docx_bytes,
+                attachment_name=attachment_name,
+            )
         )
 
         # 8. 持久化记录
@@ -479,3 +484,122 @@ class ContractService:
         docx_bytes = filler.fill(values)
         filename = f"年度采购框架合同_{supplier.name}_{inquiry.order_no or inquiry.id}.docx"
         return docx_bytes, filename
+
+    @staticmethod
+    async def send_contract_direct(
+        db: AsyncSession,
+        supplier: EntrustSupplier,
+        recipient_email: str,
+        extra_values: Optional[dict[str, str]] = None,
+        created_by: int = 0,
+    ) -> dict:
+        """
+        直接向供应商发送框架合同，不依赖询价单。
+        用于合同分发管理页面的主动发送场景。
+        """
+        # 选模板
+        template_path = _pick_template(supplier.category)
+        if not template_path.exists():
+            return {"success": False, "message": f"合同模板不存在：{template_path}",
+                    "smtp_message_id": None, "record_id": None, "missing_fields": []}
+
+        # 读甲方信息
+        party_a = await _get_party_a_config(db)
+
+        # 组装字段（无询价单，日期用今天）
+        from datetime import date
+        today = date.today()
+        sign_y = str(today.year)
+        sign_m = f"{today.month:02d}"
+        sign_d = f"{today.day:02d}"
+
+        values: dict[str, str] = {
+            "乙方名称":         supplier.name or "",
+            "乙方地址":         f"{supplier.province or ''}{supplier.city or ''}{supplier.address or ''}".strip() or "【待填写】",
+            "乙方法定代表人":   supplier.legal_rep or supplier.contact_name or "【待填写】",
+            "乙方联系电话":     supplier.contact_phone or "【待填写】",
+            "统一社会信用代码": supplier.credit_code or "【待填写】",
+            "合同期限_起_年": sign_y,
+            "合同期限_起_月": sign_m,
+            "合同期限_起_日": sign_d,
+            "合同期限_止_年": "【待确认】",
+            "合同期限_止_月": "【待确认】",
+            "合同期限_止_日": "【待确认】",
+            "签订日期_年": sign_y,
+            "签订日期_月": sign_m,
+            "签订日期_日": sign_d,
+            "合同额度": supplier.contract_amount and f"¥{supplier.contract_amount:,.2f}" or "【待填写】",
+            "乙方印章":        "【待盖章】",
+            "乙方签字":        "【待签字】",
+            "乙方签字日期_年": "",
+            "乙方签字日期_月": "",
+            "乙方签字日期_日": "",
+        }
+        values.update(party_a)
+        if extra_values:
+            values.update(extra_values)
+
+        # 填充 DOCX
+        try:
+            filler = DocxFiller(str(template_path))
+            docx_bytes = filler.fill(values)
+            logger.info(f"[ContractService] 直发合同填充完成 supplier={supplier.name} size={len(docx_bytes)//1024}KB")
+        except Exception as e:
+            logger.error(f"[ContractService] 直发 DOCX 填充失败: {e}")
+            return {"success": False, "message": f"合同填充失败：{e}",
+                    "smtp_message_id": None, "record_id": None, "missing_fields": []}
+
+        # 发送邮件
+        attachment_name = f"年度采购框架合同_{supplier.name}.docx"
+        sender = _build_sender()
+        company_name = party_a.get("_raw_company_name") or SmtpConfig.smtp_sender_name
+        html = sender.wrap_html(
+            title=f"年度采购框架合同 — {supplier.name}",
+            body=f"""
+            <p>尊敬的 <strong>{supplier.name}</strong>，您好：</p>
+            <p>附件为年度采购框架合同，请查阅并在 <strong>72 小时</strong>内回复确认意见。</p>
+            <table class="info">
+              <tr><td>供应商</td><td><strong>{supplier.name}</strong></td></tr>
+              <tr><td>法定代表人</td><td>{supplier.legal_rep or '—'}</td></tr>
+              <tr><td>联系电话</td><td>{supplier.contact_phone or '—'}</td></tr>
+              <tr><td>合同额度</td><td>{values.get('合同额度', '—')}</td></tr>
+            </table>
+            <div class="warn">⚠️ 请核对合同内容，如有异议请及时联系我司（{company_name}）。</div>
+            """,
+            company=company_name,
+        )
+
+        import asyncio
+        loop = asyncio.get_event_loop()
+        send_result = await loop.run_in_executor(
+            None,
+            lambda: sender.send(
+                to=recipient_email,
+                subject=f"【请确认】年度采购框架合同 — {supplier.name}",
+                html=html,
+                attachment_bytes=docx_bytes,
+                attachment_name=attachment_name,
+            )
+        )
+
+        # 写发送记录
+        record = EntrustContractRecord(
+            inquiry_id=0,   # 无询价单，用 0 占位
+            supplier_id=supplier.id,
+            recipient_email=recipient_email,
+            status="sent" if send_result["success"] else "failed",
+            smtp_message_id=send_result.get("smtp_message_id"),
+            error_message=None if send_result["success"] else send_result.get("error"),
+            sent_at=datetime.now(),
+            created_by=created_by,
+        )
+        db.add(record)
+        await db.flush()
+
+        return {
+            "success": send_result["success"],
+            "message": "发送成功" if send_result["success"] else send_result.get("error", "发送失败"),
+            "smtp_message_id": send_result.get("smtp_message_id"),
+            "record_id": record.id,
+            "missing_fields": [],
+        }

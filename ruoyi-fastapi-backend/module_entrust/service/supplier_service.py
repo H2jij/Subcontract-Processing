@@ -23,6 +23,8 @@ class SupplierService:
     @staticmethod
     async def _enrich_response(db: AsyncSession, supplier: EntrustSupplier) -> SupplierResponse:
         """给响应补充关联用户名"""
+        # 确保 ORM 对象属性已加载（避免 lazy load 触发 greenlet 错误）
+        await db.refresh(supplier)
         resp = SupplierResponse.model_validate(supplier)
         if supplier.user_id:
             user_stmt = select(SysUser).where(SysUser.user_id == supplier.user_id)
@@ -50,6 +52,7 @@ class SupplierService:
         stmt = stmt.order_by(EntrustSupplier.created_at.desc()).offset(offset).limit(query.page_size)
         result = (await db.execute(stmt)).scalars().all()
 
+        # 确保所有属性在 session 上下文内加载完毕，避免 greenlet 错误
         rows = []
         for r in result:
             rows.append(await SupplierService._enrich_response(db, r))
@@ -128,6 +131,12 @@ class SupplierService:
         await db.flush()
         await db.commit()
         await db.refresh(supplier)
+
+        # 自动创建合同发送任务
+        from module_entrust.service.contract_task_service import ContractTaskService
+        await ContractTaskService.ensure_task(db, supplier.id, user_id)
+        await db.commit()
+
         return await SupplierService._enrich_response(db, supplier)
 
     @staticmethod

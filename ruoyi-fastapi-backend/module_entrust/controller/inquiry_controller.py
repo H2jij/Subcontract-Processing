@@ -265,7 +265,6 @@ async def award_inquiry(
     return ResponseUtil.success(data=result.model_dump(), msg='选标成功，已生成委外工单')
 
 
-<<<<<<< HEAD
 # ─────────────────────────────────────────────────────────────────────────────
 # 合同生成 & 邮件分发
 # ─────────────────────────────────────────────────────────────────────────────
@@ -399,7 +398,8 @@ async def get_contract_record(
     if not record:
         return ResponseUtil.failure(msg='记录不存在')
     return ResponseUtil.success(data=record)
-=======
+
+
 @inquiry_controller.get(
     '/order/list',
     summary='查询委外工单列表',
@@ -413,4 +413,3 @@ async def get_order_list(
 ):
     rows, total = await InquiryService.get_order_list(query_db, page_num, page_size, status)
     return ResponseUtil.success(rows=rows, dict_content={'total': total})
->>>>>>> 4ad0b34ba2aae04c005b2b0e158d47690d0405c8

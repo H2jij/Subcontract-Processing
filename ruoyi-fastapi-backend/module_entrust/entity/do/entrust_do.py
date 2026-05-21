@@ -321,6 +321,19 @@ class EntrustChatMessage(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class EntrustContractTemplate(Base):
+    """合同模板表"""
+    __tablename__ = 'entrust_contract_templates'
+    __table_args__ = {'comment': '合同模板表'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')
+    name = Column(String(255), nullable=False, comment='模板名称')
+    file_path = Column(String(512), nullable=False, comment='服务端文件路径')
+    category = Column(String(128), comment='适用分类（钢料/全工序/五金等）')
+    is_active = Column(Boolean, default=True, comment='是否启用')
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+
+
 class EntrustContractRecord(Base):
     """合同发送历史记录表"""
     __tablename__ = 'entrust_contract_records'
@@ -329,6 +342,8 @@ class EntrustContractRecord(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')
     inquiry_id = Column(Integer, nullable=False, comment='询价单ID')
     supplier_id = Column(Integer, nullable=False, comment='加工方ID')
+    order_id = Column(Integer, comment='委外工单ID')
+    template_id = Column(Integer, comment='使用的模板ID')
     recipient_email = Column(String(255), nullable=False, comment='收件邮箱')
     status = Column(String(16), nullable=False, default='sent', comment='状态：sent/failed')
     smtp_message_id = Column(String(255), comment='SMTP Message-ID')
@@ -336,3 +351,23 @@ class EntrustContractRecord(Base):
     sent_at = Column(DateTime, default=datetime.now, comment='发送时间')
     created_by = Column(BigInteger, comment='操作人')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+
+
+class EntrustContractTask(Base):
+    """框架合同发送任务表 — 每个供应商对应一条，跟踪发送状态"""
+    __tablename__ = 'entrust_contract_tasks'
+    __table_args__ = {'comment': '框架合同发送任务'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    supplier_id = Column(Integer, nullable=False, comment='供应商ID')
+    status = Column(
+        String(32), nullable=False, default='pending',
+        comment='状态: pending-待发送 sent-已发送 deferred-已延迟 rejected-已拒绝'
+    )
+    last_sent_at = Column(DateTime, comment='最近发送时间')
+    send_count = Column(Integer, nullable=False, default=0, comment='累计发送次数')
+    deferred_until = Column(DateTime, comment='延迟发送时间（定时发送用）')
+    note = Column(Text, comment='备注')
+    created_by = Column(BigInteger, comment='创建人')
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment='更新时间')
